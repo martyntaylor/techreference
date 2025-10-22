@@ -78,10 +78,12 @@ class PortIssue extends Model
             );
         }
 
-        return $query->where(function ($q) use ($term) {
-            $q->where('issue_title', 'LIKE', "%{$term}%")
-                ->orWhere('symptoms', 'LIKE', "%{$term}%")
-                ->orWhere('solution', 'LIKE', "%{$term}%");
+        $escapedTerm = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term);
+
+        return $query->where(function ($q) use ($escapedTerm) {
+            $q->where('issue_title', 'LIKE', "%{$escapedTerm}%")
+                ->orWhere('symptoms', 'LIKE', "%{$escapedTerm}%")
+                ->orWhere('solution', 'LIKE', "%{$escapedTerm}%");
         });
     }
 }
