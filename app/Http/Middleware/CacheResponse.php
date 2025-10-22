@@ -42,9 +42,13 @@ class CacheResponse
             $cachedResponse = Cache::get($cacheKey);
 
             // Return cached response with cache headers
-            return response($cachedResponse['content'], $cachedResponse['status'])
-                ->withHeaders($cachedResponse['headers'])
-                ->header('X-Cache', 'HIT');
+            $response = response($cachedResponse['content'], $cachedResponse['status'])
+                ->withHeaders($cachedResponse['headers']);
+
+            $response->headers->set('X-Cache', 'HIT');
+            $response->headers->set('Cache-Control', 'public, max-age=3600');
+
+            return $response;
         }
 
         // Process request
@@ -60,11 +64,11 @@ class CacheResponse
             ], 3600);
 
             // Add cache miss header
-            $response->header('X-Cache', 'MISS');
+            $response->headers->set('X-Cache', 'MISS');
         }
 
         // Add cache control headers
-        $response->header('Cache-Control', 'public, max-age=3600');
+        $response->headers->set('Cache-Control', 'public, max-age=3600');
 
         return $response;
     }
