@@ -14,7 +14,8 @@ class RangeController extends Controller
      */
     public function show(RangeRequest $request, int $start, int $end): View
     {
-        // Validation is handled by RangeRequest
+        // Ensure validation is executed and silence static analyzers
+        $request->validated();
 
         // Query ports in range
         $ports = Port::whereBetween('port_number', [$start, $end])
