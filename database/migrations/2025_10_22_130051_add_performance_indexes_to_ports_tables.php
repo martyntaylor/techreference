@@ -7,10 +7,17 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     *
+     * Requires PostgreSQL 13+ for all features.
+     * - PostgreSQL 11+ required for INCLUDE clause (covering indexes)
+     * - PostgreSQL 13+ required for DESC in index expressions
      */
     public function up(): void
     {
         if (config('database.default') === 'pgsql') {
+            // Get PostgreSQL version
+            $version = (int) DB::selectOne("SELECT current_setting('server_version_num') as version")->version;
+            $pgVersion = (int) ($version / 10000); // Extract major version
             // Partial indexes for frequently filtered queries
             // Index for high-risk ports only (smaller, faster for security queries)
             DB::statement("CREATE INDEX ports_high_risk_idx ON ports (port_number, service_name) WHERE risk_level = 'High'");
@@ -28,14 +35,27 @@ return new class extends Migration
             // Port configs by platform (for quick platform-specific config lookups)
             DB::statement("CREATE INDEX port_configs_platform_port_idx ON port_configs (platform, port_id) WHERE verified = true");
 
-            // Verified issues ordered by popularity
-            DB::statement("CREATE INDEX port_issues_verified_popular_idx ON port_issues (port_id, upvotes DESC) WHERE verified = true");
+            // PostgreSQL 13+ features: DESC in index expressions
+            if ($pgVersion >= 13) {
+                // Verified issues ordered by popularity
+                DB::statement("CREATE INDEX port_issues_verified_popular_idx ON port_issues (port_id, upvotes DESC) WHERE verified = true");
 
-            // Security data with recent updates
-            DB::statement("CREATE INDEX port_security_recent_idx ON port_security (port_id, shodan_updated_at DESC)");
+                // Security data with recent updates
+                DB::statement("CREATE INDEX port_security_recent_idx ON port_security (port_id, shodan_updated_at DESC)");
+            } else {
+                // Fallback for PostgreSQL < 13 (without DESC ordering)
+                DB::statement("CREATE INDEX port_issues_verified_popular_idx ON port_issues (port_id, upvotes) WHERE verified = true");
+                DB::statement("CREATE INDEX port_security_recent_idx ON port_security (port_id, shodan_updated_at)");
+            }
 
-            // Covering indexes (include columns to avoid table lookups)
-            DB::statement("CREATE INDEX ports_list_covering_idx ON ports (port_number) INCLUDE (service_name, protocol, risk_level)");
+            // PostgreSQL 11+ features: INCLUDE clause for covering indexes
+            if ($pgVersion >= 11) {
+                // Covering indexes (include columns to avoid table lookups)
+                DB::statement("CREATE INDEX ports_list_covering_idx ON ports (port_number) INCLUDE (service_name, protocol, risk_level)");
+            } else {
+                // Fallback composite index for PostgreSQL < 11
+                DB::statement("CREATE INDEX ports_list_covering_idx ON ports (port_number, service_name, protocol, risk_level)");
+            }
 
             // Index for port relations lookup
             DB::statement("CREATE INDEX port_relations_type_idx ON port_relations (port_id, relation_type, related_port_id)");

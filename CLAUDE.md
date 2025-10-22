@@ -27,10 +27,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - CSS: Tailwind CSS 4.x
 - Build: Vite 6.x
 - Testing: Pest 4.x
-- Database: PostgreSQL 16 (production) / SQLite (development)
+- Database: PostgreSQL 13+ (production, recommended PostgreSQL 16) / SQLite (development)
 - Cache: Redis
 - Search: PostgreSQL Full-Text + Meilisearch
 - Queue: Laravel Horizon
+
+**Database Requirements:**
+- PostgreSQL 13+ required for optimal performance (DESC in indexes)
+- PostgreSQL 11+ supported with reduced index performance
+- PostgreSQL < 11 not supported due to missing INCLUDE clause
 
 ## Development Commands
 
