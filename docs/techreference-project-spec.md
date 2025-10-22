@@ -13,6 +13,7 @@
 - **HTTP Status Codes** (All RFC codes + CDN/proxy codes)
 - **MIME Types** (1,000+ types)
 - **Configuration Files** (Future phase)
+- **Timezones** (https://www.iana.org/time-zones)
 
 ### Core Platform Goals
 | Goal | Target Metric | Measurement |
@@ -36,6 +37,7 @@ techreference.io/
 ├── /mime/[type]                # MIME type pages
 ├── /search                     # Unified search
 ├── /api                        # Developer API
+├── /timezones                  # Timezones pages
 └── /tools/                     # Interactive tools
     ├── port-checker
     ├── error-decoder
