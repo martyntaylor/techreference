@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Ports;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\ShowPortRequest;
 use App\Models\Port;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
@@ -14,7 +14,7 @@ class PortController extends Controller
     /**
      * Display the specified port (all protocols).
      */
-    public function show(ShowPortRequest $request, Collection $portNumber): View
+    public function show(Request $request, Collection $portNumber): View
     {
         // Load relationships for all port protocol variants
         $portNumber->load([
