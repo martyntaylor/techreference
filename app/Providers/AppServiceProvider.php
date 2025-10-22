@@ -40,9 +40,15 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function registerRouteModelBindings(): void
     {
-        // Bind Port model by port_number instead of ID
+        // Bind Port model by port_number - returns collection of all protocols for that port
         Route::bind('portNumber', function (string $value) {
-            return Port::where('port_number', $value)->firstOrFail();
+            $ports = Port::where('port_number', $value)->get();
+
+            if ($ports->isEmpty()) {
+                abort(404);
+            }
+
+            return $ports;
         });
 
         // Bind Category by slug

@@ -1,6 +1,8 @@
 @php
-$pageTitle = "Port {$port->port_number} ({$port->protocol})" . ($port->service_name ? " - {$port->service_name}" : '');
-$metaDescription = $port->description ?: "Technical reference for port {$port->port_number} ({$port->protocol}). Learn about services, security considerations, configuration examples, and common issues.";
+// $port is the primary port for metadata, $ports is the collection of all protocols
+$protocolsList = $ports->pluck('protocol')->join(', ');
+$pageTitle = "Port {$port->port_number}" . ($port->service_name ? " - {$port->service_name}" : '');
+$metaDescription = $port->description ?: "Technical reference for port {$port->port_number} ({$protocolsList}). Learn about services, security considerations, configuration examples, and common issues.";
 $breadcrumbs = [];
 if($port->categories->isNotEmpty()) {
     $breadcrumbs[] = [
@@ -26,16 +28,14 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Page Header -->
         <div class="mb-8">
             <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                Port {{ $port->port_number }} ({{ $port->protocol }})
+                Port {{ $port->port_number }}
                 @if($port->service_name)
                     - {{ $port->service_name }}
                 @endif
             </h1>
-
-            <!-- Risk Badge -->
-            @if($port->risk_level)
-                <x-security-badge :level="$port->risk_level" />
-            @endif
+            <p class="text-lg text-gray-600 dark:text-gray-400">
+                Available on: {{ $protocolsList }}
+            </p>
         </div>
 
         <!-- Quick Reference -->
@@ -47,8 +47,8 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
                     <dd class="text-lg text-gray-900 dark:text-white">{{ $port->port_number }}</dd>
                 </div>
                 <div>
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Protocol</dt>
-                    <dd class="text-lg text-gray-900 dark:text-white">{{ $port->protocol }}</dd>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Protocols</dt>
+                    <dd class="text-lg text-gray-900 dark:text-white">{{ $protocolsList }}</dd>
                 </div>
                 @if($port->service_name)
                 <div>
@@ -65,10 +65,6 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
                         @endif
                     </dd>
                 </div>
-                <div>
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Encrypted by Default</dt>
-                    <dd class="text-lg text-gray-900 dark:text-white">{{ $port->encrypted_default ? 'Yes' : 'No' }}</dd>
-                </div>
             </dl>
 
             @if($port->description)
@@ -78,6 +74,40 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
                 </div>
             @endif
         </div>
+
+        <!-- Protocol-Specific Information -->
+        @if($ports->count() > 1)
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Protocol Details</h2>
+            <div class="space-y-4">
+                @foreach($ports as $protocolPort)
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ $protocolPort->protocol }}</h3>
+                        @if($protocolPort->risk_level)
+                            <x-security-badge :level="$protocolPort->risk_level" />
+                        @endif
+                    </div>
+                    @if($protocolPort->description && $protocolPort->description !== $port->description)
+                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-2">{{ $protocolPort->description }}</p>
+                    @endif
+                    <dl class="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                            <dt class="text-gray-500 dark:text-gray-400">Encrypted by Default</dt>
+                            <dd class="text-gray-900 dark:text-white">{{ $protocolPort->encrypted_default ? 'Yes' : 'No' }}</dd>
+                        </div>
+                        @if($protocolPort->common_uses)
+                        <div>
+                            <dt class="text-gray-500 dark:text-gray-400">Common Uses</dt>
+                            <dd class="text-gray-900 dark:text-white">{{ Str::limit($protocolPort->common_uses, 50) }}</dd>
+                        </div>
+                        @endif
+                    </dl>
+                </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
 
         <!-- Software Using This Port -->
         @if($port->software->isNotEmpty())
@@ -206,11 +236,11 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         @endif
 
         <!-- Related Ports -->
-        @if($port->relatedPorts->isNotEmpty())
+        @if($relatedPorts->isNotEmpty())
             <x-related-content
                 title="Related Ports"
                 type="ports"
-                :items="$port->relatedPorts->map(fn($relatedPort) => [
+                :items="$relatedPorts->map(fn($relatedPort) => [
                     'number' => $relatedPort->port_number,
                     'protocol' => $relatedPort->protocol,
                     'name' => $relatedPort->service_name,
@@ -222,16 +252,18 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         @endif
     </div>
 
-    <!-- Schema.org Structured Data -->
-    <x-schema-json
-        type="TechArticle"
-        :data="[
-            'headline' => $pageTitle,
-            'description' => $metaDescription,
-            'datePublished' => $port->created_at->toIso8601String(),
-            'dateModified' => $port->updated_at->toIso8601String(),
-        ]"
-    />
+    <!-- Schema.org Structured Data - One per protocol -->
+    @foreach($ports as $protocolPort)
+        <x-schema-json
+            type="TechArticle"
+            :data="[
+                'headline' => 'Port ' . $protocolPort->port_number . ' (' . $protocolPort->protocol . ')' . ($protocolPort->service_name ? ' - ' . $protocolPort->service_name : ''),
+                'description' => $protocolPort->description ?: $metaDescription,
+                'datePublished' => $protocolPort->created_at->toIso8601String(),
+                'dateModified' => $protocolPort->updated_at->toIso8601String(),
+            ]"
+        />
+    @endforeach
 
     @if($port->verifiedIssues->isNotEmpty())
         <!-- FAQ Schema for Common Issues -->

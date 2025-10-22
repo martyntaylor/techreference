@@ -101,6 +101,14 @@ class Port extends Model
     }
 
     /**
+     * Scope a query to get all protocols for a given port number.
+     */
+    public function scopeForPortNumber($query, int $portNumber)
+    {
+        return $query->where('port_number', $portNumber);
+    }
+
+    /**
      * Scope a query to filter by category.
      */
     public function scopeByCategory($query, $categoryId)

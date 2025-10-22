@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::create('ports', function (Blueprint $table) {
             $table->id();
-            $table->unsignedInteger('port_number')->unique();
+            $table->unsignedInteger('port_number');
             $table->string('protocol', 10); // TCP, UDP, SCTP
             $table->string('service_name', 100)->nullable();
             $table->string('transport_protocol', 10)->nullable(); // For display
@@ -31,8 +31,10 @@ return new class extends Migration
             $table->text('search_vector')->nullable(); // For PostgreSQL full-text search
             $table->timestamps();
 
+            // Composite unique constraint: same port number can exist for different protocols
+            $table->unique(['port_number', 'protocol'], 'ports_port_number_protocol_unique');
+
             // Indexes
-            $table->index('port_number');
             $table->index('protocol');
             $table->index('service_name');
             $table->index('risk_level');

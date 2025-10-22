@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('port_relations', function (Blueprint $table) {
             $table->foreignId('port_id')->constrained('ports')->onDelete('cascade');
             $table->foreignId('related_port_id')->constrained('ports')->onDelete('cascade');
-            $table->enum('relation_type', ['alternative', 'secure_version', 'deprecated_by', 'part_of_suite', 'conflicts_with']);
+            $table->enum('relation_type', ['alternative', 'secure_version', 'deprecated_by', 'part_of_suite', 'conflicts_with', 'complementary']);
             $table->text('description')->nullable();
             $table->timestamps();
 

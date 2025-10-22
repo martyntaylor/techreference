@@ -46,6 +46,16 @@ class SearchController extends Controller
 
             $ports = $portQuery->paginate(20);
 
+            // Group ports by port_number (unless protocol filter is active)
+            if (!$protocol) {
+                $groupedPorts = $ports->getCollection()->groupBy('port_number')->map(function ($portGroup) {
+                    $firstPort = $portGroup->first();
+                    $firstPort->protocols = $portGroup->pluck('protocol')->toArray();
+                    return $firstPort;
+                })->values();
+                $ports->setCollection($groupedPorts);
+            }
+
             // TODO: Add error codes and file extensions search when those modules are implemented
             return [
                 'ports' => $ports,

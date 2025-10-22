@@ -12,7 +12,11 @@
     </div>
 
     <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-        <span>{{ $port->protocol }}</span>
+        @if(isset($port->protocols) && is_array($port->protocols))
+            <span>{{ implode(', ', $port->protocols) }}</span>
+        @else
+            <span>{{ $port->protocol }}</span>
+        @endif
         @if($port->software_count ?? false)
             <span>{{ $port->software_count }} apps</span>
         @endif

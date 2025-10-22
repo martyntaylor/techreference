@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Ports;
 
 use App\Http\Controllers\Controller;
 use App\Models\Port;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
@@ -11,48 +12,55 @@ use Illuminate\View\View;
 class PortController extends Controller
 {
     /**
-     * Display the specified port.
+     * Display the specified port (all protocols).
      */
-    public function show(Request $request, Port $portNumber): View
+    public function show(Request $request, Collection $portNumber): View
     {
-        // Load relationships if not already loaded
-        if (!$portNumber->relationLoaded('software')) {
-            $portNumber->load([
-                'software' => function ($query) {
-                    $query->where('is_active', true)
-                        ->orderBy('name');
-                },
-                'security',
-                'configs' => function ($query) {
-                    $query->where('verified', true)
-                        ->orderBy('platform');
-                },
-                'verifiedIssues' => function ($query) {
-                    $query->orderBy('upvotes', 'desc')
-                        ->limit(10);
-                },
-                'relatedPorts' => function ($query) {
-                    $query->orderBy('port_number');
-                },
-                'categories',
-            ]);
-        }
+        // Load relationships for all port protocol variants
+        $portNumber->load([
+            'software' => function ($query) {
+                $query->where('is_active', true)
+                    ->orderBy('name');
+            },
+            'security',
+            'configs' => function ($query) {
+                $query->where('verified', true)
+                    ->orderBy('platform');
+            },
+            'verifiedIssues' => function ($query) {
+                $query->orderBy('upvotes', 'desc')
+                    ->limit(10);
+            },
+            'relatedPorts' => function ($query) {
+                $query->orderBy('port_number');
+            },
+            'categories',
+        ]);
 
-        // Increment view count asynchronously (don't invalidate cache)
+        // Increment view count asynchronously for all protocol variants
         if (! $request->is('*/preview')) {
-            $portId = $portNumber->id;
-            dispatch(function () use ($portId) {
+            $portIds = $portNumber->pluck('id')->toArray();
+            dispatch(function () use ($portIds) {
                 // Use query builder to avoid triggering model events
-                Port::whereKey($portId)->increment('view_count');
+                Port::whereIn('id', $portIds)->increment('view_count');
             })->afterResponse();
         }
 
+        // Get the first port for general metadata (port number is the same across protocols)
+        $primaryPort = $portNumber->first();
+
+        // Filter related ports to exclude same port number (different protocols shown separately)
+        $filteredRelatedPorts = $primaryPort->relatedPorts->filter(
+            fn($relatedPort) => $relatedPort->port_number !== $primaryPort->port_number
+        );
+
         return view('ports.show', [
-            'port' => $portNumber,
-            'pageTitle' => sprintf('Port %d (%s)%s',
-                $portNumber->port_number,
-                $portNumber->protocol,
-                $portNumber->service_name ? ' - ' . $portNumber->service_name : ''
+            'ports' => $portNumber, // Collection of all protocols
+            'port' => $primaryPort, // Primary port for metadata
+            'relatedPorts' => $filteredRelatedPorts, // Related ports (excluding protocol variants)
+            'pageTitle' => sprintf('Port %d%s',
+                $primaryPort->port_number,
+                $primaryPort->service_name ? ' - ' . $primaryPort->service_name : ''
             ),
         ]);
     }

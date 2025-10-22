@@ -24,6 +24,7 @@ class PortSeeder extends Seeder
         $remoteAccess = Category::where('slug', 'remote-access')->first();
         $email = Category::where('slug', 'email')->first();
         $fileTransfer = Category::where('slug', 'file-transfer')->first();
+        $dns = Category::where('slug', 'dns')->first();
 
         // Create software
         $apache = Software::create([
@@ -64,6 +65,22 @@ class PortSeeder extends Seeder
             'website_url' => 'https://www.openssh.com',
             'description' => 'Secure shell implementation',
             'category' => 'Remote Access',
+        ]);
+
+        $bind = Software::create([
+            'name' => 'BIND',
+            'slug' => 'bind',
+            'website_url' => 'https://www.isc.org/bind/',
+            'description' => 'Berkeley Internet Name Domain - Popular DNS server software',
+            'category' => 'DNS',
+        ]);
+
+        $dnsmasq = Software::create([
+            'name' => 'dnsmasq',
+            'slug' => 'dnsmasq',
+            'website_url' => 'https://thekelleys.org.uk/dnsmasq/doc.html',
+            'description' => 'Lightweight DNS forwarder and DHCP server',
+            'category' => 'DNS',
         ]);
 
         // Port 80 - HTTP
@@ -364,10 +381,190 @@ hostssl all all 0.0.0.0/0 scram-sha-256",
             'verified' => true,
         ]);
 
+        // Port 53 - DNS (TCP)
+        $port53Tcp = Port::create([
+            'port_number' => 53,
+            'protocol' => 'TCP',
+            'service_name' => 'DNS',
+            'description' => 'Domain Name System (TCP) - Used for DNS zone transfers (AXFR/IXFR) and responses larger than 512 bytes. TCP provides reliable delivery for large DNS messages.',
+            'iana_official' => true,
+            'iana_status' => 'Official',
+            'risk_level' => 'Medium',
+            'encrypted_default' => false,
+            'common_uses' => 'Zone transfers between DNS servers, large DNS responses, DNS over TCP fallback',
+            'historical_context' => 'Originally, DNS used UDP exclusively. TCP support was added for zone transfers and to handle responses exceeding UDP packet size limits.',
+        ]);
+
+        $port53Tcp->categories()->attach([$dns->id]);
+        $port53Tcp->software()->attach([$bind->id, $dnsmasq->id]);
+
+        PortSecurity::create([
+            'port_id' => $port53Tcp->id,
+            'shodan_exposed_count' => 5678900,
+            'censys_exposed_count' => 5400000,
+            'cve_count' => 45,
+            'latest_cve' => 'CVE-2024-2222',
+            'security_recommendations' => 'Restrict zone transfers to authorized secondary servers only. Use TSIG authentication. Block port 53 TCP from untrusted networks if zone transfers are not needed.',
+            'shodan_updated_at' => now(),
+            'censys_updated_at' => now(),
+        ]);
+
+        PortConfig::create([
+            'port_id' => $port53Tcp->id,
+            'platform' => 'BIND',
+            'config_type' => 'Zone Transfer',
+            'title' => 'Restrict Zone Transfers',
+            'code_snippet' => '// named.conf
+zone "example.com" {
+    type master;
+    file "/etc/bind/zones/example.com.zone";
+    allow-transfer {
+        192.168.1.2;  // Secondary DNS server
+        192.168.1.3;  // Another secondary
+    };
+};',
+            'language' => 'bash',
+            'explanation' => 'Configure BIND to only allow zone transfers to specific secondary DNS servers.',
+            'verified' => true,
+        ]);
+
+        PortConfig::create([
+            'port_id' => $port53Tcp->id,
+            'platform' => 'Firewall',
+            'config_type' => 'iptables',
+            'title' => 'Allow DNS TCP from Specific IPs',
+            'code_snippet' => '# Allow DNS TCP from secondary servers
+iptables -A INPUT -p tcp --dport 53 -s 192.168.1.2 -j ACCEPT
+iptables -A INPUT -p tcp --dport 53 -s 192.168.1.3 -j ACCEPT
+# Block all other DNS TCP
+iptables -A INPUT -p tcp --dport 53 -j DROP',
+            'language' => 'bash',
+            'explanation' => 'Firewall rules to restrict DNS zone transfers.',
+            'verified' => true,
+        ]);
+
+        // Port 53 - DNS (UDP)
+        $port53Udp = Port::create([
+            'port_number' => 53,
+            'protocol' => 'UDP',
+            'service_name' => 'DNS',
+            'description' => 'Domain Name System (UDP) - The primary protocol for DNS queries and responses. UDP is used for standard DNS lookups due to its low overhead and fast response time.',
+            'iana_official' => true,
+            'iana_status' => 'Official',
+            'risk_level' => 'Medium',
+            'encrypted_default' => false,
+            'common_uses' => 'Standard DNS queries, recursive lookups, DNS caching, client-server DNS resolution',
+            'historical_context' => 'UDP has been the primary DNS protocol since its creation in 1983. Its connectionless nature makes it ideal for the request-response pattern of DNS queries.',
+        ]);
+
+        $port53Udp->categories()->attach([$dns->id]);
+        $port53Udp->software()->attach([$bind->id, $dnsmasq->id]);
+
+        PortSecurity::create([
+            'port_id' => $port53Udp->id,
+            'shodan_exposed_count' => 12456789,
+            'censys_exposed_count' => 11900000,
+            'cve_count' => 52,
+            'latest_cve' => 'CVE-2024-1111',
+            'security_recommendations' => 'Implement rate limiting to prevent DNS amplification attacks. Use DNS response rate limiting (RRL). Enable DNSSEC for query validation. Restrict recursive queries to trusted networks only.',
+            'shodan_updated_at' => now(),
+            'censys_updated_at' => now(),
+        ]);
+
+        PortConfig::create([
+            'port_id' => $port53Udp->id,
+            'platform' => 'BIND',
+            'config_type' => 'Server Configuration',
+            'title' => 'Secure DNS Server Configuration',
+            'code_snippet' => '// named.conf
+options {
+    directory "/var/named";
+
+    // Only allow recursion from local network
+    recursion yes;
+    allow-recursion { 192.168.1.0/24; localhost; };
+
+    // Disable zone transfers by default
+    allow-transfer { none; };
+
+    // Enable response rate limiting
+    rate-limit {
+        responses-per-second 10;
+        window 5;
+    };
+};',
+            'language' => 'bash',
+            'explanation' => 'Secure BIND configuration to prevent DNS amplification attacks.',
+            'verified' => true,
+        ]);
+
+        PortConfig::create([
+            'port_id' => $port53Udp->id,
+            'platform' => 'dnsmasq',
+            'config_type' => 'Server Configuration',
+            'title' => 'dnsmasq DNS Configuration',
+            'code_snippet' => '# /etc/dnsmasq.conf
+# Listen on specific interface
+interface=eth0
+
+# Restrict to local network
+listen-address=192.168.1.1
+
+# Cache size
+cache-size=1000
+
+# Upstream DNS servers
+server=8.8.8.8
+server=1.1.1.1',
+            'language' => 'bash',
+            'explanation' => 'Basic dnsmasq configuration for a local DNS server.',
+            'verified' => true,
+        ]);
+
+        PortConfig::create([
+            'port_id' => $port53Udp->id,
+            'platform' => 'Docker',
+            'config_type' => 'Container',
+            'title' => 'BIND DNS Server in Docker',
+            'code_snippet' => 'docker run -d \
+  --name bind9 \
+  -p 53:53/udp \
+  -p 53:53/tcp \
+  -v /etc/bind:/etc/bind \
+  ubuntu/bind9:latest',
+            'language' => 'bash',
+            'explanation' => 'Run BIND DNS server in Docker with both UDP and TCP ports exposed.',
+            'verified' => true,
+        ]);
+
+        PortIssue::create([
+            'port_id' => $port53Udp->id,
+            'issue_title' => 'DNS Server Not Responding',
+            'symptoms' => 'DNS queries timeout, nslookup or dig commands fail',
+            'solution' => 'Check if DNS service is running: `sudo systemctl status named` or `sudo systemctl status dnsmasq`. Verify port 53 is listening: `sudo netstat -tulpn | grep :53`. Check firewall: `sudo ufw status` or `sudo iptables -L -n`. Test with: `dig @localhost example.com`',
+            'platform' => 'Linux',
+            'verified' => true,
+            'upvotes' => 89,
+        ]);
+
+        PortIssue::create([
+            'port_id' => $port53Udp->id,
+            'issue_title' => 'DNS Amplification Attack Protection',
+            'symptoms' => 'High DNS query volume, network bandwidth saturation, server overload',
+            'solution' => 'Disable open recursion: only allow recursive queries from trusted networks. Enable response rate limiting (RRL) in BIND. Use iptables to limit query rates per IP. Monitor with: `sudo tcpdump -i any port 53 -n`',
+            'platform' => 'All',
+            'verified' => true,
+            'upvotes' => 56,
+        ]);
+
         // Create some port relations
         $port80->relatedPorts()->attach($port443->id, ['relation_type' => 'alternative']);
         $port443->relatedPorts()->attach($port80->id, ['relation_type' => 'alternative']);
         $port3306->relatedPorts()->attach($port5432->id, ['relation_type' => 'alternative']);
         $port5432->relatedPorts()->attach($port3306->id, ['relation_type' => 'alternative']);
+
+        // DNS TCP and UDP are complementary
+        $port53Tcp->relatedPorts()->attach($port53Udp->id, ['relation_type' => 'complementary', 'description' => 'DNS uses both TCP and UDP protocols']);
+        $port53Udp->relatedPorts()->attach($port53Tcp->id, ['relation_type' => 'complementary', 'description' => 'DNS uses both TCP and UDP protocols']);
     }
 }

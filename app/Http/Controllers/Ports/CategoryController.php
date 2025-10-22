@@ -68,8 +68,21 @@ class CategoryController extends Controller
                     $query->orderBy('port_number');
             }
 
-            // Limit to 2000 items to avoid memory issues
-            return $query->limit(2000)->get();
+            // Get all matching ports
+            $ports = $query->limit(2000)->get();
+
+            // Group by port_number and keep only the first entry per port
+            // (unless protocol filter is active, then show all matching protocols)
+            if (!$protocol) {
+                $ports = $ports->groupBy('port_number')->map(function ($portGroup) {
+                    // Return the first port, but add protocols array for display
+                    $firstPort = $portGroup->first();
+                    $firstPort->protocols = $portGroup->pluck('protocol')->toArray();
+                    return $firstPort;
+                })->values();
+            }
+
+            return $ports;
         });
 
         // Paginate the cached collection in-memory
