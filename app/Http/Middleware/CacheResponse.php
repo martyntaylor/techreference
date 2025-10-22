@@ -46,7 +46,13 @@ class CacheResponse
                 ->withHeaders($cachedResponse['headers']);
 
             $response->headers->set('X-Cache', 'HIT');
-            $response->headers->set('Cache-Control', 'public, max-age=3600');
+
+            // Preserve Cache-Control from cached metadata if present, otherwise set default
+            if (isset($cachedResponse['headers']['Cache-Control'])) {
+                $response->headers->set('Cache-Control', $cachedResponse['headers']['Cache-Control']);
+            } elseif (!$response->headers->has('Cache-Control')) {
+                $response->headers->set('Cache-Control', 'public, max-age=3600');
+            }
 
             return $response;
         }
@@ -54,8 +60,12 @@ class CacheResponse
         // Process request
         $response = $next($request);
 
-        // Only cache successful responses
-        if ($response->isSuccessful() && $response->getStatusCode() === 200) {
+        // Only cache cacheable responses (successful status codes, no Set-Cookie)
+        $cacheableStatuses = [200, 203, 300, 301, 410];
+        $isCacheable = in_array($response->getStatusCode(), $cacheableStatuses)
+            && !$response->headers->has('Set-Cookie');
+
+        if ($isCacheable) {
             // Store response in cache for 1 hour (3600 seconds)
             Cache::put($cacheKey, [
                 'content' => $response->getContent(),
@@ -65,10 +75,12 @@ class CacheResponse
 
             // Add cache miss header
             $response->headers->set('X-Cache', 'MISS');
-        }
 
-        // Add cache control headers
-        $response->headers->set('Cache-Control', 'public, max-age=3600');
+            // Set Cache-Control only if not already present
+            if (!$response->headers->has('Cache-Control')) {
+                $response->headers->set('Cache-Control', 'public, max-age=3600');
+            }
+        }
 
         return $response;
     }
@@ -93,7 +105,7 @@ class CacheResponse
         $headers = [];
 
         // Only cache specific headers
-        $cacheableHeaders = ['Content-Type', 'Content-Language'];
+        $cacheableHeaders = ['Content-Type', 'Content-Language', 'Cache-Control'];
 
         foreach ($cacheableHeaders as $header) {
             if ($response->headers->has($header)) {
