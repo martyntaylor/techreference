@@ -208,7 +208,7 @@ mysqladmin ping -h localhost || exit 1
 ```sql
 -- Core port data
 CREATE TABLE ports (
-    port_id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY,
     port_number INTEGER NOT NULL UNIQUE,
     protocol VARCHAR(10) NOT NULL, -- TCP, UDP, SCTP
     iana_status VARCHAR(50), -- Official, Unofficial, Reserved
@@ -226,7 +226,7 @@ CREATE TABLE ports (
 
 -- Software associations
 CREATE TABLE software (
-    software_id SERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     vendor VARCHAR(100),
     category VARCHAR(50),
@@ -236,8 +236,8 @@ CREATE TABLE software (
 );
 
 CREATE TABLE port_software (
-    port_id INTEGER REFERENCES ports(port_id),
-    software_id INTEGER REFERENCES software(software_id),
+    id INTEGER REFERENCES ports(port_id),
+    software_id INTEGER REFERENCES software(id),
     is_default BOOLEAN DEFAULT TRUE,
     since_version VARCHAR(20),
     until_version VARCHAR(20),
@@ -247,7 +247,7 @@ CREATE TABLE port_software (
 
 -- Security data
 CREATE TABLE port_security (
-    port_id INTEGER PRIMARY KEY REFERENCES ports(port_id),
+    id INTEGER PRIMARY KEY REFERENCES ports(id),
     shodan_count BIGINT,
     shodan_url TEXT,
     shodan_updated TIMESTAMP,
@@ -260,8 +260,8 @@ CREATE TABLE port_security (
 
 -- Configuration examples
 CREATE TABLE port_configs (
-    config_id SERIAL PRIMARY KEY,
-    port_id INTEGER REFERENCES ports(port_id),
+    id SERIAL PRIMARY KEY,
+    port_id INTEGER REFERENCES ports(id),
     platform VARCHAR(50), -- docker, k8s, iptables, ufw, windows
     config_type VARCHAR(50), -- firewall, expose, service
     config_snippet TEXT,
@@ -271,8 +271,8 @@ CREATE TABLE port_configs (
 
 -- Common issues from community
 CREATE TABLE port_issues (
-    issue_id SERIAL PRIMARY KEY,
-    port_id INTEGER REFERENCES ports(port_id),
+    id SERIAL PRIMARY KEY,
+    port_id INTEGER REFERENCES ports(id),
     issue_title VARCHAR(200),
     symptoms TEXT,
     solution TEXT,
@@ -294,7 +294,7 @@ CREATE TABLE port_relations (
 
 -- Categories for browsing
 CREATE TABLE categories (
-    category_id SERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     slug VARCHAR(50) UNIQUE,
     name VARCHAR(100),
     description TEXT,
@@ -302,8 +302,8 @@ CREATE TABLE categories (
 );
 
 CREATE TABLE port_categories (
-    port_id INTEGER REFERENCES ports(port_id),
-    category_id INTEGER REFERENCES categories(category_id),
+    port_id INTEGER REFERENCES ports(id),
+    category_id INTEGER REFERENCES categories(id),
     PRIMARY KEY (port_id, category_id)
 );
 

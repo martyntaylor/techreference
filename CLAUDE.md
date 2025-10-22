@@ -27,10 +27,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - CSS: Tailwind CSS 4.x
 - Build: Vite 6.x
 - Testing: Pest 4.x
-- Database: PostgreSQL 16 (production) / SQLite (development)
+- Database: PostgreSQL 13+ (production, recommended PostgreSQL 16) / SQLite (development)
 - Cache: Redis
 - Search: PostgreSQL Full-Text + Meilisearch
 - Queue: Laravel Horizon
+
+**Database Requirements:**
+- PostgreSQL 9.0+ minimum supported (basic functionality with fallback indexes)
+- PostgreSQL 11+ recommended (adds INCLUDE clause for covering indexes)
+- PostgreSQL 13+ recommended for optimal performance (DESC in index expressions)
+- Note: B-tree indexes with ORDER BY DESC have been supported since PostgreSQL 8.3
+- Migrations automatically detect PostgreSQL version and use appropriate index syntax
 
 ## Development Commands
 

@@ -95,6 +95,31 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
+            'options' => extension_loaded('pdo_pgsql') ? [
+                // Connection timeout (seconds)
+                PDO::ATTR_TIMEOUT => env('DB_TIMEOUT', 5),
+                // Persistent connections for connection pooling
+                PDO::ATTR_PERSISTENT => env('DB_PERSISTENT', false),
+                // Statement timeout (milliseconds) - prevents long-running queries
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ] : [],
+            // PostgreSQL-specific performance settings
+            'application_name' => env('APP_NAME', 'TechReference'),
+            // Execute these statements after connecting
+            'after_connect' => [
+                // Set work_mem for complex queries (sorting, hashing)
+                "SET work_mem = '32MB'",
+                // Set statement timeout to prevent runaway queries (30 seconds)
+                "SET statement_timeout = 30000",
+                // Enable JIT compilation for better query performance (PG 11+)
+                "SET jit = on",
+                // Set timezone
+                "SET timezone = 'UTC'",
+                // Optimize for read-heavy workload
+                "SET random_page_cost = 1.1", // For SSD storage
+                // Enable parallel query execution
+                "SET max_parallel_workers_per_gather = 4",
+            ],
         ],
 
         'sqlsrv' => [
