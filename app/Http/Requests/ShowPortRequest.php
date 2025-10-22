@@ -22,30 +22,7 @@ class ShowPortRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'portNumber' => ['required', 'integer', 'min:1', 'max:65535'],
+            // Port number validation handled by route binding in AppServiceProvider
         ];
-    }
-
-    /**
-     * Get custom messages for validator errors.
-     */
-    public function messages(): array
-    {
-        return [
-            'portNumber.required' => 'Port number is required.',
-            'portNumber.integer' => 'Port number must be an integer.',
-            'portNumber.min' => 'Port number must be at least 1.',
-            'portNumber.max' => 'Port number must not exceed 65535.',
-        ];
-    }
-
-    /**
-     * Get validated data from the route parameters.
-     */
-    public function validationData(): array
-    {
-        return array_merge($this->all(), [
-            'portNumber' => $this->route('portNumber'),
-        ]);
     }
 }
