@@ -29,7 +29,12 @@ Route::get('/port/{portNumber}', [PortController::class, 'show'])
     ->whereNumber('portNumber') // 1-65535 validated in ShowPortRequest
     ->middleware('cache.response');
 
-// Port range view (must come before category to avoid conflicts)
+// Ports landing page (must come before other /ports/* routes)
+Route::get('/ports', [\App\Http\Controllers\Ports\PortsHomeController::class, 'index'])
+    ->name('ports.index')
+    ->middleware('cache.response');
+
+// Port range view
 Route::get('/ports/range/{start}-{end}', [RangeController::class, 'show'])
     ->name('ports.range')
     ->whereNumber(['start', 'end']) // 1-65535 validated in RangeRequest
