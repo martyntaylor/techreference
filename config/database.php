@@ -95,11 +95,6 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
-            // PostgreSQL connection pooling and performance settings
-            'pool' => [
-                'min' => env('DB_POOL_MIN', 2),
-                'max' => env('DB_POOL_MAX', 10),
-            ],
             'options' => extension_loaded('pdo_pgsql') ? [
                 // Connection timeout (seconds)
                 PDO::ATTR_TIMEOUT => env('DB_TIMEOUT', 5),
