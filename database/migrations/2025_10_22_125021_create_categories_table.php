@@ -23,7 +23,6 @@ return new class extends Migration
             $table->timestamps();
 
             // Indexes
-            $table->index('slug');
             $table->index('is_active');
             $table->index('display_order');
         });
