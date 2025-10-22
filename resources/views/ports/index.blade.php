@@ -6,6 +6,11 @@
 
 <x-layouts.app pageTitle="Network Ports Reference">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumbs -->
+        <x-breadcrumbs :items="[
+            ['name' => 'Ports']
+        ]" />
+
         <!-- Hero Section -->
         <div class="text-center mb-12">
             <h1 class="text-5xl font-bold text-gray-900 dark:text-white mb-4">

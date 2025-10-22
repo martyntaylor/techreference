@@ -3,7 +3,9 @@
 $protocolsList = $ports->pluck('protocol')->join(', ');
 $pageTitle = "Port {$port->port_number}" . ($port->service_name ? " - {$port->service_name}" : '');
 $metaDescription = $port->description ?: "Technical reference for port {$port->port_number} ({$protocolsList}). Learn about services, security considerations, configuration examples, and common issues.";
-$breadcrumbs = [];
+$breadcrumbs = [
+    ['name' => 'Ports', 'url' => route('ports.index')]
+];
 if($port->categories->isNotEmpty()) {
     $breadcrumbs[] = [
         'name' => $port->categories->first()->name,
