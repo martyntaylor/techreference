@@ -50,7 +50,7 @@ class SearchController extends Controller
             if (!$protocol) {
                 $groupedPorts = $ports->getCollection()->groupBy('port_number')->map(function ($portGroup) {
                     $firstPort = $portGroup->first();
-                    $firstPort->protocols = $portGroup->pluck('protocol')->toArray();
+                    $firstPort->setAttribute('protocols', $portGroup->pluck('protocol')->toArray());
                     return $firstPort;
                 })->values();
                 $ports->setCollection($groupedPorts);

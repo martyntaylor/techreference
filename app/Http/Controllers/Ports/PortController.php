@@ -13,9 +13,16 @@ class PortController extends Controller
 {
     /**
      * Display the specified port (all protocols).
+     *
+     * @param \Illuminate\Database\Eloquent\Collection<int, \App\Models\Port> $portNumber
      */
     public function show(Request $request, Collection $portNumber): View
     {
+        // Abort if binding returned no ports
+        if ($portNumber->isEmpty()) {
+            abort(404);
+        }
+
         // Load relationships for all port protocol variants
         $portNumber->load([
             'software' => function ($query) {

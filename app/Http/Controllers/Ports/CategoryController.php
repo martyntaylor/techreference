@@ -77,7 +77,7 @@ class CategoryController extends Controller
                 $ports = $ports->groupBy('port_number')->map(function ($portGroup) {
                     // Return the first port, but add protocols array for display
                     $firstPort = $portGroup->first();
-                    $firstPort->protocols = $portGroup->pluck('protocol')->toArray();
+                    $firstPort->setAttribute('protocols', $portGroup->pluck('protocol')->toArray());
                     return $firstPort;
                 })->values();
             }
