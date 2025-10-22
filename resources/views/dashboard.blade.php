@@ -1,4 +1,4 @@
-<x-layouts.app>
+<x-layouts.dashboard-layout>
 
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ __('Dashboard')}}</h1>
@@ -108,4 +108,4 @@
         </div>
     </div>
 
-</x-layouts.app>
+</x-layouts.dashboard-layout>
