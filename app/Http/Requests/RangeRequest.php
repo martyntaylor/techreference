@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Foundation\Http\FormRequest;
 
 class RangeRequest extends FormRequest
@@ -48,11 +49,11 @@ class RangeRequest extends FormRequest
     /**
      * Configure the validator instance.
      */
-    public function withValidator($validator): void
+    public function withValidator(ValidatorContract $validator): void
     {
         $validator->after(function ($validator) {
-            $start = $this->route('start');
-            $end = $this->route('end');
+            $start = (int) $this->route('start');
+            $end = (int) $this->route('end');
 
             // Validate range size (max 1000 ports inclusive)
             if ($start && $end && ($end - $start + 1) > 1000) {
