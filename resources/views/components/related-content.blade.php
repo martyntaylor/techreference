@@ -13,7 +13,7 @@
     <div class="space-y-3">
         @foreach($items as $item)
             <a
-                href="{{ $item['url'] }}"
+                href="{{ $item['url'] ?? '#' }}"
                 class="block p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-md transition group"
             >
                 <div class="flex items-start justify-between">
@@ -46,7 +46,7 @@
 
                         @if(isset($item['description']))
                             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                                {{ Str::limit($item['description'], 120) }}
+                                {{ \Illuminate\Support\Str::limit($item['description'], 120) }}
                             </p>
                         @endif
                     </div>
