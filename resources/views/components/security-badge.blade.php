@@ -6,7 +6,8 @@
         'Medium' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
         'Low' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
     ];
-    $color = $colors[$level] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+    $normalizedLevel = ucfirst(strtolower((string) $level));
+    $color = $colors[$normalizedLevel] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
 
     $sizes = [
         'sm' => 'px-2 py-0.5 text-xs',
@@ -16,6 +17,7 @@
     $sizeClass = $sizes[$size] ?? $sizes['md'];
 @endphp
 
-<span {{ $attributes->merge(['class' => "inline-flex items-center rounded-full font-medium {$color} {$sizeClass}"]) }}>
-    {{ $level }} Risk
+<span {{ $attributes->merge(['class' => "inline-flex items-center rounded-full font-medium {$color} {$sizeClass}"]) }}
+      aria-label="Security level: {{ $normalizedLevel }} risk">
+    {{ $normalizedLevel }} Risk
 </span>
