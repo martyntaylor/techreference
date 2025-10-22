@@ -97,6 +97,6 @@ class PortSecurity extends Model
      */
     public function getTotalExposureAttribute(): int
     {
-        return $this->shodan_exposed_count + $this->censys_exposed_count;
+        return ($this->shodan_exposed_count ?? 0) + ($this->censys_exposed_count ?? 0);
     }
 }
