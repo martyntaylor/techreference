@@ -1,11 +1,52 @@
 <?php
 
+use App\Http\Controllers\Ports\CategoryController;
+use App\Http\Controllers\Ports\PortController;
+use App\Http\Controllers\Ports\RangeController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\Settings;
 use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
 
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
+
+/*
+|--------------------------------------------------------------------------
+| Port Routes
+|--------------------------------------------------------------------------
+*/
+
+// Individual port page
+Route::get('/port/{portNumber}', [PortController::class, 'show'])
+    ->name('port.show')
+    ->where('portNumber', '[1-9][0-9]{0,4}'); // 1-65535
+
+// Category listing
+Route::get('/ports/{slug}', [CategoryController::class, 'show'])
+    ->name('ports.category')
+    ->where('slug', '[a-z0-9-]+');
+
+// Port range view
+Route::get('/ports/range/{start}-{end}', [RangeController::class, 'show'])
+    ->name('ports.range')
+    ->where(['start' => '[1-9][0-9]{0,4}', 'end' => '[1-9][0-9]{0,4}']);
+
+// Unified search
+Route::get('/search', [SearchController::class, 'index'])
+    ->name('search');
+
+/*
+|--------------------------------------------------------------------------
+| Dashboard & Settings Routes
+|--------------------------------------------------------------------------
+*/
 
 Route::view('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
