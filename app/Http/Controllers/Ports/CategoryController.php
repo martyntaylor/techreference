@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Ports;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\Port;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
@@ -38,11 +39,12 @@ class CategoryController extends Controller
         // Cache the full collection for 1 hour (limit to 2000 items for memory safety)
         $categoryId = $category->id;
         $allPorts = Cache::remember($cacheKey, 3600, function () use ($categoryId, $protocol, $riskLevel, $sort) {
-            $category = Category::findOrFail($categoryId);
-            $query = $category->ports()
+            // Start with Port model to use query scopes
+            $query = Port::query()
+                ->whereHas('categories', fn ($q) => $q->where('categories.id', $categoryId))
                 ->with(['security', 'categories']);
 
-            // Apply filters
+            // Apply filters using query scopes
             if ($protocol) {
                 $query->byProtocol($protocol);
             }

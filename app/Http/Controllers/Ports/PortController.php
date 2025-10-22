@@ -42,7 +42,8 @@ class PortController extends Controller
         if (! $request->is('*/preview')) {
             $portId = $portNumber->id;
             dispatch(function () use ($portId) {
-                \App\Models\Port::find($portId)?->increment('view_count');
+                // Use query builder to avoid triggering model events
+                Port::whereKey($portId)->increment('view_count');
             })->afterResponse();
         }
 
