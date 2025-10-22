@@ -37,11 +37,18 @@ class PortObserver
      */
     public function updated(Port $port): void
     {
-        // Clear relevant caches
-        $this->clearPortCaches($port);
+        // Invalidate caches only when content affecting views/filters changes
+        if ($port->wasChanged(['service_name', 'description', 'protocol', 'transport_protocol', 'risk_level', 'iana_official'])) {
+            $this->clearPortCaches($port);
+        }
+
+        // Popularity cache can be handled separately
+        if ($port->wasChanged('view_count')) {
+            Cache::forget('ports:popular');
+        }
 
         // Refresh materialized views if significant changes
-        if ($port->wasChanged(['risk_level', 'iana_official', 'view_count'])) {
+        if ($port->wasChanged(['risk_level', 'iana_official'])) {
             // TODO: Queue job to refresh materialized views
             // RefreshMaterializedViews::dispatch();
         }
