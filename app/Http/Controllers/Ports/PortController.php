@@ -13,56 +13,45 @@ class PortController extends Controller
     /**
      * Display the specified port.
      */
-    public function show(Request $request, int $portNumber): View
+    public function show(Request $request, Port $portNumber): View
     {
-        // Cache key for this port
-        $cacheKey = "port:{$portNumber}";
-
-        // Try to get from cache (1 hour TTL)
-        $port = Cache::remember($cacheKey, 3600, function () use ($portNumber) {
-            return Port::where('port_number', $portNumber)
-                ->with([
-                    'software' => function ($query) {
-                        $query->where('is_active', true)
-                            ->orderBy('name');
-                    },
-                    'security',
-                    'configs' => function ($query) {
-                        $query->where('verified', true)
-                            ->orderBy('platform')
-                            ->orderBy('upvotes', 'desc');
-                    },
-                    'verifiedIssues' => function ($query) {
-                        $query->orderBy('upvotes', 'desc')
-                            ->limit(10);
-                    },
-                    'relatedPorts' => function ($query) {
-                        $query->orderBy('port_number');
-                    },
-                    'categories' => function ($query) {
-                        $query->where('is_active', true)
-                            ->orderBy('display_order');
-                    },
-                ])
-                ->firstOrFail();
-        });
+        // Load relationships if not already loaded
+        if (!$portNumber->relationLoaded('software')) {
+            $portNumber->load([
+                'software' => function ($query) {
+                    $query->where('is_active', true)
+                        ->orderBy('name');
+                },
+                'security',
+                'configs' => function ($query) {
+                    $query->where('verified', true)
+                        ->orderBy('platform');
+                },
+                'verifiedIssues' => function ($query) {
+                    $query->orderBy('upvotes', 'desc')
+                        ->limit(10);
+                },
+                'relatedPorts' => function ($query) {
+                    $query->orderBy('port_number');
+                },
+                'categories',
+            ]);
+        }
 
         // Increment view count asynchronously (don't invalidate cache)
         if (! $request->is('*/preview')) {
-            dispatch(function () use ($port) {
-                $port->incrementViewCount();
+            $portId = $portNumber->id;
+            dispatch(function () use ($portId) {
+                \App\Models\Port::find($portId)?->increment('view_count');
             })->afterResponse();
         }
 
-        // Get suggested ports if 404 would occur
-        // This is now handled by firstOrFail() which throws 404
-
         return view('ports.show', [
-            'port' => $port,
+            'port' => $portNumber,
             'pageTitle' => sprintf('Port %d (%s)%s',
-                $port->port_number,
-                $port->protocol,
-                $port->service_name ? ' - ' . $port->service_name : ''
+                $portNumber->port_number,
+                $portNumber->protocol,
+                $portNumber->service_name ? ' - ' . $portNumber->service_name : ''
             ),
         ]);
     }

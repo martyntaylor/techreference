@@ -13,12 +13,10 @@ class CategoryController extends Controller
     /**
      * Display ports in the specified category.
      */
-    public function show(Request $request, string $slug): View
+    public function show(Request $request, Category $slug): View
     {
-        // Find category by slug
-        $category = Category::where('slug', $slug)
-            ->where('is_active', true)
-            ->firstOrFail();
+        // Route model binding provides the Category via 'slug' parameter
+        $category = $slug;
 
         // Get filters from request
         $protocol = $request->input('protocol');
@@ -28,7 +26,7 @@ class CategoryController extends Controller
         // Build cache key based on filters
         $cacheKey = sprintf(
             'category:%s:protocol:%s:risk:%s:sort:%s:page:%d',
-            $slug,
+            $category->slug,
             $protocol ?? 'all',
             $riskLevel ?? 'all',
             $sort,
@@ -36,7 +34,9 @@ class CategoryController extends Controller
         );
 
         // Cache for 1 hour
-        $ports = Cache::remember($cacheKey, 3600, function () use ($category, $protocol, $riskLevel, $sort) {
+        $categoryId = $category->id;
+        $ports = Cache::remember($cacheKey, 3600, function () use ($categoryId, $protocol, $riskLevel, $sort) {
+            $category = Category::findOrFail($categoryId);
             $query = $category->ports()
                 ->with(['security', 'categories']);
 
@@ -68,7 +68,8 @@ class CategoryController extends Controller
         });
 
         // Get filter counts for UI
-        $filterCounts = Cache::remember("category:{$slug}:filter-counts", 3600, function () use ($category) {
+        $filterCounts = Cache::remember("category:{$category->slug}:filter-counts", 3600, function () use ($categoryId) {
+            $category = Category::findOrFail($categoryId);
             return [
                 'protocols' => $category->ports()
                     ->selectRaw('protocol, COUNT(*) as count')

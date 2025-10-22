@@ -29,17 +29,16 @@ Route::get('/port/{portNumber}', [PortController::class, 'show'])
     ->where('portNumber', '[1-9][0-9]{0,4}') // 1-65535
     ->middleware('cache.response');
 
-// Category listing
-Route::get('/ports/{slug}', [CategoryController::class, 'show'])
-    ->name('ports.category')
-    ->where('slug', '[a-z0-9-]+')
-    ->middleware('cache.response');
-
-// Port range view
+// Port range view (must come before category to avoid conflicts)
 Route::get('/ports/range/{start}-{end}', [RangeController::class, 'show'])
     ->name('ports.range')
     ->where(['start' => '[1-9][0-9]{0,4}', 'end' => '[1-9][0-9]{0,4}'])
     ->middleware('cache.response');
+
+// Category listing (keep this last among /ports/* routes)
+Route::get('/ports/{slug}', [CategoryController::class, 'show'])
+    ->name('ports.category')
+    ->where('slug', '[a-z0-9-]+');
 
 // Unified search
 Route::get('/search', [SearchController::class, 'index'])

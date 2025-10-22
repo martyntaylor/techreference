@@ -70,13 +70,17 @@ class PortObserver
         // Clear category caches
         foreach ($port->categories as $category) {
             Cache::forget("category:{$category->slug}");
-            Cache::tags(['categories', "category:{$category->id}"])->flush();
+            if (method_exists(Cache::getStore(), 'tags')) {
+                Cache::tags(['categories', "category:{$category->id}"])->flush();
+            }
         }
 
         // Clear popular ports cache
         Cache::forget('ports:popular');
 
-        // Clear search result caches (use tags)
-        Cache::tags(['ports', 'search'])->flush();
+        // Clear search result caches (use tags if supported)
+        if (method_exists(Cache::getStore(), 'tags')) {
+            Cache::tags(['ports', 'search'])->flush();
+        }
     }
 }

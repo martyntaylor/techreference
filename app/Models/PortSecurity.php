@@ -9,6 +9,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class PortSecurity extends Model
 {
     /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
+    protected $table = 'port_security';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
@@ -34,7 +41,7 @@ class PortSecurity extends Model
     protected $casts = [
         'shodan_exposed_count' => 'integer',
         'shodan_updated_at' => 'datetime',
-        'censys_exposed_count' => 'datetime',
+        'censys_exposed_count' => 'integer',
         'censys_updated_at' => 'datetime',
         'cve_count' => 'integer',
         'cve_updated_at' => 'datetime',
