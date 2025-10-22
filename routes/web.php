@@ -26,21 +26,25 @@ Route::get('/', function () {
 // Individual port page
 Route::get('/port/{portNumber}', [PortController::class, 'show'])
     ->name('port.show')
-    ->where('portNumber', '[1-9][0-9]{0,4}'); // 1-65535
+    ->where('portNumber', '[1-9][0-9]{0,4}') // 1-65535
+    ->middleware('cache.response');
 
 // Category listing
 Route::get('/ports/{slug}', [CategoryController::class, 'show'])
     ->name('ports.category')
-    ->where('slug', '[a-z0-9-]+');
+    ->where('slug', '[a-z0-9-]+')
+    ->middleware('cache.response');
 
 // Port range view
 Route::get('/ports/range/{start}-{end}', [RangeController::class, 'show'])
     ->name('ports.range')
-    ->where(['start' => '[1-9][0-9]{0,4}', 'end' => '[1-9][0-9]{0,4}']);
+    ->where(['start' => '[1-9][0-9]{0,4}', 'end' => '[1-9][0-9]{0,4}'])
+    ->middleware('cache.response');
 
 // Unified search
 Route::get('/search', [SearchController::class, 'index'])
-    ->name('search');
+    ->name('search')
+    ->middleware('cache.response');
 
 /*
 |--------------------------------------------------------------------------
