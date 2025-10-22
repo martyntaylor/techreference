@@ -10,12 +10,12 @@ $defaultTab = $defaultTab ?? (count($tabs) > 0 ? array_key_first($tabs) : null);
 
 <div
     x-data="{
-        activeTab: '{{ $defaultTab }}',
-        storageKey: '{{ $storageKey }}',
+        activeTab: @js($defaultTab),
+        storageKey: @js($storageKey),
         init() {
             if (this.storageKey) {
                 const saved = localStorage.getItem(this.storageKey);
-                if (saved && {{ json_encode(array_keys($tabs)) }}.includes(saved)) {
+                if (saved && @js(array_keys($tabs)).includes(saved)) {
                     this.activeTab = saved;
                 }
             }
@@ -55,6 +55,7 @@ $defaultTab = $defaultTab ?? (count($tabs) > 0 ? array_key_first($tabs) : null);
         @foreach($tabs as $key => $tab)
             <div
                 x-show="activeTab === '{{ $key }}'"
+                x-cloak
                 x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0 transform translate-y-1"
                 x-transition:enter-end="opacity-100 transform translate-y-0"
