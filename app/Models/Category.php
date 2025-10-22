@@ -42,20 +42,6 @@ class Category extends Model
     }
 
     /**
-     * Generate slug from name before creating.
-     */
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($category) {
-            if (empty($category->slug)) {
-                $category->slug = Str::slug($category->name);
-            }
-        });
-    }
-
-    /**
      * Get the ports in this category.
      */
     public function ports(): BelongsToMany

@@ -9,7 +9,6 @@ class CategoryObserver
 {
     /**
      * Handle the Category "creating" event.
-     * Note: Slug generation is also handled in the model boot method.
      */
     public function creating(Category $category): void
     {
