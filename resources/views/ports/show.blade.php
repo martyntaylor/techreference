@@ -16,7 +16,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
 <x-meta-tags
     :title="$pageTitle"
     :description="$metaDescription"
-    :keywords="'port ' . $port->port_number . ', ' . $port->protocol . ', ' . $port->service_name . ', network ports'"
+    :keywords="collect(['port ' . $port->port_number, $port->protocol, $port->service_name, 'network ports'])->filter()->join(', ')"
     type="article"
 />
 
@@ -99,7 +99,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
                         @if($protocolPort->common_uses)
                         <div>
                             <dt class="text-gray-500 dark:text-gray-400">Common Uses</dt>
-                            <dd class="text-gray-900 dark:text-white">{{ Str::limit($protocolPort->common_uses, 50) }}</dd>
+                            <dd class="text-gray-900 dark:text-white">{{ \Illuminate\Support\Str::limit($protocolPort->common_uses, 50) }}</dd>
                         </div>
                         @endif
                     </dl>
@@ -193,7 +193,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
                 }
                 $content .= '</div>';
 
-                $configTabs[Str::slug($platform)] = [
+                $configTabs[\Illuminate\Support\Str::slug($platform)] = [
                     'label' => $platform,
                     'content' => $content
                 ];
