@@ -32,6 +32,8 @@ class PortSearchRequest extends FormRequest
 
     /**
      * Get custom messages for validator errors.
+     *
+     * @return array<string,string>
      */
     public function messages(): array
     {
@@ -39,6 +41,7 @@ class PortSearchRequest extends FormRequest
             'q.required' => 'Please enter a search query.',
             'q.min' => 'Search query must be at least 2 characters.',
             'q.max' => 'Search query must not exceed 100 characters.',
+            'type.in' => 'Type must be one of: all, port, error, extension.',
             'protocol.in' => 'Protocol must be one of: TCP, UDP, SCTP.',
             'risk_level.in' => 'Risk level must be one of: High, Medium, Low.',
         ];
@@ -49,11 +52,20 @@ class PortSearchRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        // Sanitize the search query
-        if ($this->has('q')) {
-            $this->merge([
-                'q' => strip_tags($this->input('q')),
-            ]);
+        $data = [];
+        if ($this->filled('q')) {
+            $q = strip_tags((string) $this->input('q'));
+            $q = preg_replace('/\s+/u', ' ', trim($q));
+            $data['q'] = $q;
+        }
+        if ($this->filled('protocol')) {
+            $data['protocol'] = strtoupper((string) $this->input('protocol'));
+        }
+        if ($this->filled('risk_level')) {
+            $data['risk_level'] = ucfirst(strtolower((string) $this->input('risk_level')));
+        }
+        if ($data !== []) {
+            $this->merge($data);
         }
     }
 }
