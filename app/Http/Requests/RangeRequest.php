@@ -54,8 +54,8 @@ class RangeRequest extends FormRequest
             $start = $this->route('start');
             $end = $this->route('end');
 
-            // Validate range size (max 1000 ports)
-            if ($start && $end && ($end - $start) > 1000) {
+            // Validate range size (max 1000 ports inclusive)
+            if ($start && $end && ($end - $start + 1) > 1000) {
                 $validator->errors()->add(
                     'end',
                     'Port range must not exceed 1000 ports. Please use a smaller range.'
