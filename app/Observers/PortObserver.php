@@ -88,6 +88,20 @@ class PortObserver
         // Clear search result caches (use tags if supported)
         if (method_exists(Cache::getStore(), 'tags')) {
             Cache::tags(['ports', 'search'])->flush();
+
+            // Clear HTTP response caches for this port
+            Cache::tags(['http', "port:{$port->port_number}"])->flush();
+
+            // Clear HTTP response caches for affected categories
+            foreach ($port->categories as $category) {
+                Cache::tags(['http', "category:{$category->slug}"])->flush();
+            }
+
+            // Clear ports home page cache (popular ports list)
+            Cache::tags(['http', 'ports:home'])->flush();
+
+            // Clear port range caches (if port is in common ranges)
+            Cache::tags(['http', 'ports:range'])->flush();
         }
     }
 }

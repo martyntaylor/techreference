@@ -36,10 +36,15 @@ class CacheResponse
 
         // Build cache key from URL and query parameters
         $cacheKey = $this->getCacheKey($request);
+        $cacheTags = $this->getCacheTags($request);
 
-        // Try to get from cache
-        if (Cache::has($cacheKey)) {
-            $cachedResponse = Cache::get($cacheKey);
+        // Try to get from cache (with tags if supported)
+        $cacheStore = method_exists(Cache::getStore(), 'tags') && !empty($cacheTags)
+            ? Cache::tags($cacheTags)
+            : Cache::store();
+
+        if ($cacheStore->has($cacheKey)) {
+            $cachedResponse = $cacheStore->get($cacheKey);
 
             // Return cached response with cache headers
             $response = response($cachedResponse['content'], $cachedResponse['status'])
@@ -66,8 +71,8 @@ class CacheResponse
             && !$response->headers->has('Set-Cookie');
 
         if ($isCacheable) {
-            // Store response in cache for 1 hour (3600 seconds)
-            Cache::put($cacheKey, [
+            // Store response in cache for 1 hour (3600 seconds) with tags if supported
+            $cacheStore->put($cacheKey, [
                 'content' => $response->getContent(),
                 'status' => $response->getStatusCode(),
                 'headers' => $this->getCacheableHeaders($response),
@@ -114,5 +119,49 @@ class CacheResponse
         }
 
         return $headers;
+    }
+
+    /**
+     * Get cache tags for the request.
+     *
+     * Tags allow flushing related cached responses when data changes.
+     */
+    protected function getCacheTags(Request $request): array
+    {
+        $tags = ['http']; // All HTTP responses get this base tag
+
+        // Port pages: /port/{number}
+        if ($request->route() && $request->route()->getName() === 'port.show') {
+            $portNumber = $request->route('portNumber');
+            if ($portNumber) {
+                // Handle Collection from route binding
+                if ($portNumber instanceof \Illuminate\Support\Collection) {
+                    $portNumber = $portNumber->first()?->port_number;
+                }
+                if ($portNumber) {
+                    $tags[] = "port:{$portNumber}";
+                }
+            }
+        }
+
+        // Category pages: /ports/{category}
+        if ($request->route() && $request->route()->getName() === 'ports.category') {
+            $category = $request->route('category');
+            if ($category) {
+                $tags[] = "category:{$category}";
+            }
+        }
+
+        // Port range pages: /ports/range/{start}-{end}
+        if ($request->route() && $request->route()->getName() === 'ports.range') {
+            $tags[] = 'ports:range';
+        }
+
+        // Ports home page
+        if ($request->route() && $request->route()->getName() === 'ports.home') {
+            $tags[] = 'ports:home';
+        }
+
+        return $tags;
     }
 }
