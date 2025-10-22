@@ -24,9 +24,9 @@ Route::get('/', function () {
 */
 
 // Individual port page
-Route::get('/port/{portNumber}', [PortController::class, 'show'])
+Route::get('/port/{ports}', [PortController::class, 'show'])
     ->name('port.show')
-    ->whereNumber('portNumber') // 1-65535 validated in ShowPortRequest
+    ->whereNumber('ports') // 1-65535, binding returns Collection of all protocols
     ->middleware('cache.response');
 
 // Ports landing page (must come before other /ports/* routes)

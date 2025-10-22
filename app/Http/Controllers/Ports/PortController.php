@@ -14,17 +14,17 @@ class PortController extends Controller
     /**
      * Display the specified port (all protocols).
      *
-     * @param \Illuminate\Database\Eloquent\Collection<int, \App\Models\Port> $portNumber
+     * @param \Illuminate\Database\Eloquent\Collection<int, \App\Models\Port> $ports
      */
-    public function show(Request $request, Collection $portNumber): View
+    public function show(Request $request, Collection $ports): View
     {
         // Abort if binding returned no ports
-        if ($portNumber->isEmpty()) {
+        if ($ports->isEmpty()) {
             abort(404);
         }
 
         // Load relationships for all port protocol variants
-        $portNumber->load([
+        $ports->load([
             'software' => function ($query) {
                 $query->where('is_active', true)
                     ->orderBy('name');
@@ -46,7 +46,7 @@ class PortController extends Controller
 
         // Increment view count asynchronously for all protocol variants
         if (! $request->is('*/preview')) {
-            $portIds = $portNumber->pluck('id')->toArray();
+            $portIds = $ports->pluck('id')->toArray();
             dispatch(function () use ($portIds) {
                 // Use query builder to avoid triggering model events
                 Port::whereIn('id', $portIds)->increment('view_count');
@@ -54,7 +54,7 @@ class PortController extends Controller
         }
 
         // Get the first port for general metadata (port number is the same across protocols)
-        $primaryPort = $portNumber->first();
+        $primaryPort = $ports->first();
 
         // Filter related ports to exclude same port number (different protocols shown separately)
         $filteredRelatedPorts = $primaryPort->relatedPorts->filter(
@@ -62,7 +62,7 @@ class PortController extends Controller
         );
 
         return view('ports.show', [
-            'ports' => $portNumber, // Collection of all protocols
+            'ports' => $ports, // Collection of all protocols
             'port' => $primaryPort, // Primary port for metadata
             'relatedPorts' => $filteredRelatedPorts, // Related ports (excluding protocol variants)
             'pageTitle' => sprintf('Port %d%s',

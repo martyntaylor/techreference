@@ -41,7 +41,7 @@ class AppServiceProvider extends ServiceProvider
     protected function registerRouteModelBindings(): void
     {
         // Bind Port model by port_number - returns collection of all protocols for that port
-        Route::bind('portNumber', function (string $value) {
+        Route::bind('ports', function (string $value) {
             $ports = Port::where('port_number', $value)->get();
 
             if ($ports->isEmpty()) {
