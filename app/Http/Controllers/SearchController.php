@@ -31,7 +31,7 @@ class SearchController extends Controller
         );
 
         // Cache search results for 15 minutes
-        $results = Cache::remember($cacheKey, 900, function () use ($query, $type, $protocol, $riskLevel) {
+        $results = Cache::remember($cacheKey, 900, function () use ($query, $protocol, $riskLevel) {
             $portQuery = Port::searchRanked($query)
                 ->with(['security', 'categories']);
 
