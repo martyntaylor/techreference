@@ -33,9 +33,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Queue: Laravel Horizon
 
 **Database Requirements:**
-- PostgreSQL 13+ required for optimal performance (DESC in indexes)
-- PostgreSQL 11+ supported with reduced index performance
-- PostgreSQL < 11 not supported due to missing INCLUDE clause
+- PostgreSQL 9.0+ minimum supported (basic functionality with fallback indexes)
+- PostgreSQL 11+ recommended (adds INCLUDE clause for covering indexes)
+- PostgreSQL 13+ recommended for optimal performance (DESC in index expressions)
+- Note: B-tree indexes with ORDER BY DESC have been supported since PostgreSQL 8.3
+- Migrations automatically detect PostgreSQL version and use appropriate index syntax
 
 ## Development Commands
 
