@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Ports;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
@@ -22,20 +23,21 @@ class CategoryController extends Controller
         $protocol = $request->input('protocol');
         $riskLevel = $request->input('risk_level');
         $sort = $request->input('sort', 'port_number'); // port_number, name, risk
+        $page = $request->input('page', 1);
+        $perPage = 50;
 
-        // Build cache key based on filters
+        // Build cache key based on filters (without page)
         $cacheKey = sprintf(
-            'category:%s:protocol:%s:risk:%s:sort:%s:page:%d',
+            'category:%s:protocol:%s:risk:%s:sort:%s',
             $category->slug,
             $protocol ?? 'all',
             $riskLevel ?? 'all',
-            $sort,
-            $request->input('page', 1)
+            $sort
         );
 
-        // Cache for 1 hour
+        // Cache the full collection for 1 hour (limit to 2000 items for memory safety)
         $categoryId = $category->id;
-        $ports = Cache::remember($cacheKey, 3600, function () use ($categoryId, $protocol, $riskLevel, $sort) {
+        $allPorts = Cache::remember($cacheKey, 3600, function () use ($categoryId, $protocol, $riskLevel, $sort) {
             $category = Category::findOrFail($categoryId);
             $query = $category->ports()
                 ->with(['security', 'categories']);
@@ -64,8 +66,18 @@ class CategoryController extends Controller
                     $query->orderBy('port_number');
             }
 
-            return $query->paginate(50);
+            // Limit to 2000 items to avoid memory issues
+            return $query->limit(2000)->get();
         });
+
+        // Paginate the cached collection in-memory
+        $ports = new LengthAwarePaginator(
+            $allPorts->forPage($page, $perPage),
+            $allPorts->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         // Get filter counts for UI
         $filterCounts = Cache::remember("category:{$category->slug}:filter-counts", 3600, function () use ($categoryId) {
