@@ -26,13 +26,13 @@ Route::get('/', function () {
 // Individual port page
 Route::get('/port/{portNumber}', [PortController::class, 'show'])
     ->name('port.show')
-    ->where('portNumber', '[1-9][0-9]{0,4}') // 1-65535
+    ->whereNumber('portNumber') // 1-65535 validated in ShowPortRequest
     ->middleware('cache.response');
 
 // Port range view (must come before category to avoid conflicts)
 Route::get('/ports/range/{start}-{end}', [RangeController::class, 'show'])
     ->name('ports.range')
-    ->where(['start' => '[1-9][0-9]{0,4}', 'end' => '[1-9][0-9]{0,4}'])
+    ->whereNumber(['start', 'end']) // 1-65535 validated in RangeRequest
     ->middleware('cache.response');
 
 // Category listing (keep this last among /ports/* routes)
