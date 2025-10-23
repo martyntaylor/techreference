@@ -95,7 +95,7 @@ test('command filters CVEs with rejected status', function () {
         'service_name' => 'http',
     ]);
 
-    // Mock 4 API calls (one per search pattern: "TCP port 80", "port 80/tcp", "UDP port 80", "port 80/udp")
+    // Mock 7 API calls (one per search pattern: "TCP port 80", "port 80/tcp", "UDP port 80", "port 80/udp", "port 80", "listening on port 80", "default port 80")
     Http::fake([
         'services.nvd.nist.gov/*' => Http::response([
             'totalResults' => 2,
@@ -135,7 +135,7 @@ test('command filters CVEs with rejected status', function () {
     $this->artisan('ports:update-cve')->assertExitCode(0);
 
     $security = PortSecurity::where('port_number', $port->port_number)->first();
-    // CVE-2024-12345 appears in all 4 search pattern results, but stored only once
+    // CVE-2024-12345 appears in all 7 search pattern results, but stored only once
     // CVE-2024-99999 is filtered out (rejected)
     expect($security->cve_count)->toBe(1);
     expect($security->latest_cve)->toBe('CVE-2024-12345');
@@ -148,7 +148,7 @@ test('command filters CVEs with disputed status', function () {
         'service_name' => 'http',
     ]);
 
-    // Mock 4 API calls (one per search pattern)
+    // Mock 7 API calls (one per search pattern)
     Http::fake([
         'services.nvd.nist.gov/*' => Http::response([
             'totalResults' => 2,
@@ -239,15 +239,15 @@ test('command caches CVE data by port number', function () {
     expect($security1)->not->toBeNull();
     expect($security2)->not->toBeNull();
 
-    // 4 search patterns per port = 8 total requests
-    Http::assertSentCount(8);
+    // 7 search patterns per port = 14 total requests
+    Http::assertSentCount(14);
 
     // Run again with --force to bypass "recently updated" filter
     // Cache should prevent additional HTTP requests (cached by port number)
     $this->artisan('ports:update-cve', ['--force' => true])->assertExitCode(0);
 
-    // Still only 8 requests total (cached by port number)
-    Http::assertSentCount(8);
+    // Still only 14 requests total (cached by port number)
+    Http::assertSentCount(14);
 });
 
 test('command can update specific port with --port option', function () {
@@ -331,8 +331,8 @@ test('command can filter by service name with --service option', function () {
     $this->artisan('ports:update-cve', ['--service' => 'mysql'])
         ->assertExitCode(0);
 
-    // Only MySQL port should be processed (4 search patterns for port 3306)
-    Http::assertSentCount(4);
+    // Only MySQL port should be processed (7 search patterns for port 3306)
+    Http::assertSentCount(7);
 
     // Verify requests contain port number patterns
     Http::assertSent(function ($request) {
@@ -405,6 +405,6 @@ test('command skips recently updated ports unless --force is used', function () 
     $this->artisan('ports:update-cve', ['--force' => true])
         ->assertExitCode(0);
 
-    // 4 search patterns for port 3306
-    Http::assertSentCount(4);
+    // 7 search patterns for port 3306
+    Http::assertSentCount(7);
 });
