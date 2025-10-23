@@ -562,6 +562,21 @@ class UpdateCveData extends Command
                             continue;
                         }
 
+                        // Skip rejected/disputed CVEs
+                        $descriptions = $cve['descriptions'] ?? [];
+                        $isRejectedOrDisputed = false;
+                        foreach ($descriptions as $desc) {
+                            $descUpper = strtoupper($desc['value'] ?? '');
+                            if (str_contains($descUpper, 'REJECT') || str_contains($descUpper, 'DISPUTED')) {
+                                $isRejectedOrDisputed = true;
+                                break;
+                            }
+                        }
+
+                        if ($isRejectedOrDisputed) {
+                            continue;
+                        }
+
                         // Extract CVSS score and severity
                         $cvssScore = null;
                         $severity = null;

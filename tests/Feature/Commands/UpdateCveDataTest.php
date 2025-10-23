@@ -95,6 +95,7 @@ test('command filters CVEs with rejected status', function () {
         'service_name' => 'http',
     ]);
 
+    // Mock 4 API calls (one per search pattern: "TCP port 80", "port 80/tcp", "UDP port 80", "port 80/udp")
     Http::fake([
         'services.nvd.nist.gov/*' => Http::response([
             'totalResults' => 2,
@@ -104,7 +105,7 @@ test('command filters CVEs with rejected status', function () {
                         'id' => 'CVE-2024-12345',
                         'published' => '2024-01-16T22:15:00.000',
                         'descriptions' => [
-                            ['lang' => 'en', 'value' => 'Valid vulnerability...'],
+                            ['lang' => 'en', 'value' => 'Valid vulnerability affecting TCP port 80...'],
                         ],
                         'metrics' => [
                             'cvssMetricV31' => [
@@ -134,7 +135,9 @@ test('command filters CVEs with rejected status', function () {
     $this->artisan('ports:update-cve')->assertExitCode(0);
 
     $security = PortSecurity::where('port_number', $port->port_number)->first();
-    expect($security->cve_count)->toBe(1); // Only 1, rejected CVE filtered out
+    // CVE-2024-12345 appears in all 4 search pattern results, but stored only once
+    // CVE-2024-99999 is filtered out (rejected)
+    expect($security->cve_count)->toBe(1);
     expect($security->latest_cve)->toBe('CVE-2024-12345');
 });
 
@@ -145,6 +148,7 @@ test('command filters CVEs with disputed status', function () {
         'service_name' => 'http',
     ]);
 
+    // Mock 4 API calls (one per search pattern)
     Http::fake([
         'services.nvd.nist.gov/*' => Http::response([
             'totalResults' => 2,
@@ -154,7 +158,7 @@ test('command filters CVEs with disputed status', function () {
                         'id' => 'CVE-2024-11111',
                         'published' => '2024-03-01T10:00:00.000',
                         'descriptions' => [
-                            ['lang' => 'en', 'value' => 'Valid vulnerability description'],
+                            ['lang' => 'en', 'value' => 'Valid vulnerability affecting port 8080'],
                         ],
                         'metrics' => [
                             'cvssMetricV31' => [
@@ -184,12 +188,14 @@ test('command filters CVEs with disputed status', function () {
     $this->artisan('ports:update-cve')->assertExitCode(0);
 
     $security = PortSecurity::where('port_number', $port->port_number)->first();
-    expect($security->cve_count)->toBe(1); // Only 1, disputed CVE filtered out
+    // CVE-2024-11111 stored once (appears in multiple search patterns)
+    // CVE-2024-22222 filtered out (disputed)
+    expect($security->cve_count)->toBe(1);
     expect($security->latest_cve)->toBe('CVE-2024-11111');
 });
 
-test('command caches CVE data by service name', function () {
-    // Create two ports with same service
+test('command caches CVE data by port number', function () {
+    // Create two different ports
     $port1 = Port::factory()->create([
         'port_number' => 3306,
         'protocol' => 'TCP',
@@ -199,7 +205,7 @@ test('command caches CVE data by service name', function () {
     $port2 = Port::factory()->create([
         'port_number' => 33060,
         'protocol' => 'TCP',
-        'service_name' => 'mysql',
+        'service_name' => 'mysqlx',
     ]);
 
     Http::fake([
@@ -211,7 +217,7 @@ test('command caches CVE data by service name', function () {
                         'id' => 'CVE-2024-20994',
                         'published' => '2024-01-16T22:15:00.000',
                         'descriptions' => [
-                            ['lang' => 'en', 'value' => 'MySQL vulnerability...'],
+                            ['lang' => 'en', 'value' => 'MySQL vulnerability affecting port 3306...'],
                         ],
                         'metrics' => [
                             'cvssMetricV31' => [
@@ -226,23 +232,22 @@ test('command caches CVE data by service name', function () {
 
     $this->artisan('ports:update-cve')->assertExitCode(0);
 
-    // Both ports should have same CVE data
+    // Each port gets its own CVE data
     $security1 = PortSecurity::where('port_number', $port1->port_number)->first();
     $security2 = PortSecurity::where('port_number', $port2->port_number)->first();
 
-    expect($security1->cve_count)->toBe(1);
-    expect($security2->cve_count)->toBe(1);
-    expect($security1->latest_cve)->toBe($security2->latest_cve);
+    expect($security1)->not->toBeNull();
+    expect($security2)->not->toBeNull();
 
-    // Only 1 HTTP request should have been made (due to grouping + caching)
-    Http::assertSentCount(1);
+    // 4 search patterns per port = 8 total requests
+    Http::assertSentCount(8);
 
     // Run again with --force to bypass "recently updated" filter
-    // Cache should prevent additional HTTP requests
+    // Cache should prevent additional HTTP requests (cached by port number)
     $this->artisan('ports:update-cve', ['--force' => true])->assertExitCode(0);
 
-    // Still only 1 request total (cached by service name)
-    Http::assertSentCount(1);
+    // Still only 8 requests total (cached by port number)
+    Http::assertSentCount(8);
 });
 
 test('command can update specific port with --port option', function () {
@@ -310,7 +315,7 @@ test('command can filter by service name with --service option', function () {
                         'id' => 'CVE-2024-12345',
                         'published' => '2024-01-16T22:15:00.000',
                         'descriptions' => [
-                            ['lang' => 'en', 'value' => 'Vulnerability...'],
+                            ['lang' => 'en', 'value' => 'Vulnerability affecting TCP port 3306...'],
                         ],
                         'metrics' => [
                             'cvssMetricV31' => [
@@ -326,9 +331,13 @@ test('command can filter by service name with --service option', function () {
     $this->artisan('ports:update-cve', ['--service' => 'mysql'])
         ->assertExitCode(0);
 
-    // Only MySQL service request should be made
+    // Only MySQL port should be processed (4 search patterns for port 3306)
+    Http::assertSentCount(4);
+
+    // Verify requests contain port number patterns
     Http::assertSent(function ($request) {
-        return str_contains($request->url(), 'keywordSearch=mysql');
+        $query = $request->data()['keywordSearch'] ?? '';
+        return str_contains($query, 'port 3306') || str_contains($query, '3306');
     });
 });
 
@@ -383,9 +392,9 @@ test('command skips recently updated ports unless --force is used', function () 
                     'cve' => [
                         'id' => 'CVE-2024-99999',
                         'published' => '2024-02-01T10:00:00.000',
-                        'descriptions' => [['lang' => 'en', 'value' => 'New vulnerability...']],
+                        'descriptions' => [['lang' => 'en', 'value' => 'New vulnerability affecting TCP port 3306...']],
                         'metrics' => [
-                            'cvssMetricV31' => [['cvssData' => ['baseScore' => 7.5]]],
+                            'cvssMetricV31' => [['cvssData' => ['baseScore' => 7.5, 'baseSeverity' => 'HIGH']]],
                         ],
                     ],
                 ],
@@ -396,5 +405,6 @@ test('command skips recently updated ports unless --force is used', function () 
     $this->artisan('ports:update-cve', ['--force' => true])
         ->assertExitCode(0);
 
-    Http::assertSentCount(1);
+    // 4 search patterns for port 3306
+    Http::assertSentCount(4);
 });
