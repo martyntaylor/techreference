@@ -617,7 +617,7 @@ class UpdateCveData extends Command
 
                         $cveRecords[$cveId] = [
                             'cve_id' => $cveId,
-                            'description' => $cve['descriptions'][0]['value'] ?? '',
+                            'description' => isset($cve['descriptions'][0]['value']) ? $cve['descriptions'][0]['value'] : '',
                             'published_date' => $cve['published'] ?? null,
                             'last_modified_date' => $cve['lastModified'] ?? null,
                             'cvss_score' => $cvssScore,
