@@ -71,7 +71,7 @@ Port::whereNotNull('service_name')
 
 ### 4. ✅ Vite Code Splitting Configuration
 **Status**: Complete
-**Files**: `vite.config.js`
+**Files**: `vite.config.js`, `package.json`
 
 **Features**:
 - **Vendor code splitting**: Separate chunks for `alpinejs`, `axios`, and other vendor code
@@ -79,6 +79,9 @@ Port::whereNotNull('service_name')
 - **Terser minification**: Removes `console.log` and `debugger` in production
 - **Chunk size warnings**: Set to 500kb limit
 - **Optimized dependencies**: Pre-bundled AlpineJS and Axios
+
+**Dependencies**:
+- `terser` v5.44.0 (dev dependency, required for production builds)
 
 **Benefits**:
 - Faster initial page loads (smaller main bundle)
