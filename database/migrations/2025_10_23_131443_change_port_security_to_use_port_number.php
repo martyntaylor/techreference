@@ -117,6 +117,9 @@ return new class extends Migration
                 )
             ');
 
+            // Remove orphaned rows where we couldn't resolve a port_number
+            DB::statement('DELETE FROM port_security WHERE port_number IS NULL');
+
             Schema::table('port_security', function (Blueprint $table) {
                 $table->unsignedInteger('port_number')->nullable(false)->change();
                 $table->unique('port_number');
