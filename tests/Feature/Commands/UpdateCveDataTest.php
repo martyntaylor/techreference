@@ -2,8 +2,11 @@
 
 use App\Models\Port;
 use App\Models\PortSecurity;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+
+uses(RefreshDatabase::class);
 
 beforeEach(function () {
     // Clear cache before each test
@@ -105,7 +108,7 @@ test('command filters CVEs with rejected status', function () {
                         ],
                         'metrics' => [
                             'cvssMetricV31' => [
-                                ['cvssData' => ['baseScore' => 7.5]],
+                                ['cvssData' => ['baseScore' => 7.5, 'baseSeverity' => 'HIGH']],
                             ],
                         ],
                     ],
@@ -119,7 +122,7 @@ test('command filters CVEs with rejected status', function () {
                         ],
                         'metrics' => [
                             'cvssMetricV31' => [
-                                ['cvssData' => ['baseScore' => 9.8]],
+                                ['cvssData' => ['baseScore' => 9.8, 'baseSeverity' => 'CRITICAL']],
                             ],
                         ],
                     ],
@@ -133,6 +136,56 @@ test('command filters CVEs with rejected status', function () {
     $security = PortSecurity::where('port_id', $port->id)->first();
     expect($security->cve_count)->toBe(1); // Only 1, rejected CVE filtered out
     expect($security->latest_cve)->toBe('CVE-2024-12345');
+});
+
+test('command filters CVEs with disputed status', function () {
+    $port = Port::factory()->create([
+        'port_number' => 8080,
+        'protocol' => 'TCP',
+        'service_name' => 'http',
+    ]);
+
+    Http::fake([
+        'services.nvd.nist.gov/*' => Http::response([
+            'totalResults' => 2,
+            'vulnerabilities' => [
+                [
+                    'cve' => [
+                        'id' => 'CVE-2024-11111',
+                        'published' => '2024-03-01T10:00:00.000',
+                        'descriptions' => [
+                            ['lang' => 'en', 'value' => 'Valid vulnerability description'],
+                        ],
+                        'metrics' => [
+                            'cvssMetricV31' => [
+                                ['cvssData' => ['baseScore' => 7.0, 'baseSeverity' => 'HIGH']],
+                            ],
+                        ],
+                    ],
+                ],
+                [
+                    'cve' => [
+                        'id' => 'CVE-2024-22222',
+                        'published' => '2024-02-01T10:00:00.000',
+                        'descriptions' => [
+                            ['lang' => 'en', 'value' => '** DISPUTED ** This CVE is disputed by vendor...'],
+                        ],
+                        'metrics' => [
+                            'cvssMetricV31' => [
+                                ['cvssData' => ['baseScore' => 9.8, 'baseSeverity' => 'CRITICAL']],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ], 200),
+    ]);
+
+    $this->artisan('ports:update-cve')->assertExitCode(0);
+
+    $security = PortSecurity::where('port_id', $port->id)->first();
+    expect($security->cve_count)->toBe(1); // Only 1, disputed CVE filtered out
+    expect($security->latest_cve)->toBe('CVE-2024-11111');
 });
 
 test('command caches CVE data by service name', function () {
@@ -162,7 +215,7 @@ test('command caches CVE data by service name', function () {
                         ],
                         'metrics' => [
                             'cvssMetricV31' => [
-                                ['cvssData' => ['baseScore' => 4.9]],
+                                ['cvssData' => ['baseScore' => 4.9, 'baseSeverity' => 'MEDIUM']],
                             ],
                         ],
                     ],
@@ -181,7 +234,14 @@ test('command caches CVE data by service name', function () {
     expect($security2->cve_count)->toBe(1);
     expect($security1->latest_cve)->toBe($security2->latest_cve);
 
-    // Only 1 HTTP request should have been made (due to caching)
+    // Only 1 HTTP request should have been made (due to grouping + caching)
+    Http::assertSentCount(1);
+
+    // Run again with --force to bypass "recently updated" filter
+    // Cache should prevent additional HTTP requests
+    $this->artisan('ports:update-cve', ['--force' => true])->assertExitCode(0);
+
+    // Still only 1 request total (cached by service name)
     Http::assertSentCount(1);
 });
 
@@ -211,7 +271,7 @@ test('command can update specific port with --port option', function () {
                         ],
                         'metrics' => [
                             'cvssMetricV31' => [
-                                ['cvssData' => ['baseScore' => 5.0]],
+                                ['cvssData' => ['baseScore' => 5.0, 'baseSeverity' => 'MEDIUM']],
                             ],
                         ],
                     ],
@@ -254,7 +314,7 @@ test('command can filter by service name with --service option', function () {
                         ],
                         'metrics' => [
                             'cvssMetricV31' => [
-                                ['cvssData' => ['baseScore' => 5.0]],
+                                ['cvssData' => ['baseScore' => 5.0, 'baseSeverity' => 'MEDIUM']],
                             ],
                         ],
                     ],

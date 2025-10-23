@@ -46,8 +46,6 @@ class UpdateCveData extends Command
 
     private int $updated = 0;
 
-    private int $skipped = 0;
-
     private int $errors = 0;
 
     /**
@@ -77,24 +75,30 @@ class UpdateCveData extends Command
         $this->newLine();
 
         foreach ($serviceGroups as $serviceName => $servicePorts) {
-            $progressBar->advance($servicePorts->count());
-
             try {
+                // Check if cached to avoid unnecessary rate limiting
+                $cacheKey = 'cve:service:'.md5($serviceName);
+                $isCached = Cache::has($cacheKey);
+
                 // Fetch CVE data for this service (with caching)
-                $cveData = $this->fetchCveDataForService($serviceName);
+                $cveData = $this->fetchCveDataForService($serviceName, $cacheKey);
 
                 // Update all ports using this service
                 foreach ($servicePorts as $port) {
                     $this->updatePortSecurity($port, $cveData);
                     $this->updated++;
+                    $progressBar->advance();
                 }
 
                 $this->processed += $servicePorts->count();
 
-                // Rate limiting: Sleep between API requests
-                sleep($this->requestDelay);
+                // Rate limiting: Only sleep after actual API calls, not cached data
+                if (! $isCached) {
+                    sleep($this->requestDelay);
+                }
             } catch (\Exception $e) {
                 $this->errors += $servicePorts->count();
+                $progressBar->advance($servicePorts->count());
                 $this->newLine();
                 $this->error("Error processing service '{$serviceName}': {$e->getMessage()}");
             }
@@ -193,15 +197,18 @@ class UpdateCveData extends Command
      *
      * @return array{count: int, latest_cve: string|null, latest_date: string|null, critical_count: int, high_count: int, medium_count: int, low_count: int, avg_score: float|null, critical_recent: array<int, array{id: string, published: string, cvss: float, severity: string, description: string}>, weakness_types: array<string, int>}
      */
-    private function fetchCveDataForService(string $serviceName): array
+    private function fetchCveDataForService(string $serviceName, string $cacheKey): array
     {
-        // Cache key based on service name
-        $cacheKey = "cve:service:".md5($serviceName);
+        // Return cached data if available
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
+        }
 
-        // Check cache (1 hour TTL)
-        return Cache::remember($cacheKey, 3600, function () use ($serviceName) {
-            return $this->queryNvdApi($serviceName);
-        });
+        // Query API and cache result (1 hour TTL)
+        $data = $this->queryNvdApi($serviceName);
+        Cache::put($cacheKey, $data, 3600);
+
+        return $data;
     }
 
     /**
@@ -313,19 +320,20 @@ class UpdateCveData extends Command
 
             // Skip rejected/disputed CVEs
             $descriptions = $cve['descriptions'] ?? [];
-            $isRejected = false;
+            $isRejectedOrDisputed = false;
             $description = '';
             foreach ($descriptions as $desc) {
                 if (isset($desc['lang']) && $desc['lang'] === 'en') {
                     $description = $desc['value'] ?? '';
                 }
-                if (isset($desc['value']) && str_contains(strtoupper($desc['value']), 'REJECT')) {
-                    $isRejected = true;
+                $descUpper = strtoupper($desc['value'] ?? '');
+                if (str_contains($descUpper, 'REJECT') || str_contains($descUpper, 'DISPUTED')) {
+                    $isRejectedOrDisputed = true;
                     break;
                 }
             }
 
-            if ($isRejected || ! $cveId || ! $published) {
+            if ($isRejectedOrDisputed || ! $cveId || ! $published) {
                 continue;
             }
 
@@ -499,7 +507,6 @@ class UpdateCveData extends Command
             [
                 ['Processed', $this->processed],
                 ['Updated', $this->updated],
-                ['Skipped', $this->skipped],
                 ['Errors', $this->errors],
             ]
         );
