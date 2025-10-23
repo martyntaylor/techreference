@@ -35,6 +35,11 @@ return [
         ],
     ],
 
+    'shodan' => [
+        'api_key' => env('SHODAN_API_KEY'),
+        'base_url' => env('SHODAN_BASE_URL', 'https://api.shodan.io'),
+    ],
+
     'nvd' => [
         'endpoint' => env('NVD_API_ENDPOINT', 'https://services.nvd.nist.gov/rest/json/cves/2.0'),
         'api_key' => env('NVD_API_KEY'),

@@ -26,6 +26,7 @@ class Port extends Model
         'iana_official',
         'iana_status',
         'iana_updated_at',
+        'data_source',
         'risk_level',
         'security_notes',
         'encrypted_default',
@@ -172,6 +173,14 @@ class Port extends Model
     public function scopeEncrypted($query)
     {
         return $query->where('encrypted_default', true);
+    }
+
+    /**
+     * Scope a query to filter by data source.
+     */
+    public function scopeByDataSource($query, string $dataSource)
+    {
+        return $query->where('data_source', $dataSource);
     }
 
     /**

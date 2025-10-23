@@ -3,8 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
+use App\Models\Category;
 
 class Software extends Model
 {
@@ -16,7 +19,8 @@ class Software extends Model
     protected $fillable = [
         'name',
         'slug',
-        'category',
+        'category', // Legacy string field (deprecated)
+        'category_id', // New foreign key
         'vendor',
         'website_url',
         'description',
@@ -56,6 +60,16 @@ class Software extends Model
     }
 
     /**
+     * Get the category this software belongs to.
+     *
+     * @phpstan-return BelongsTo<Category, Software>
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    /**
      * Get the ports that use this software.
      */
     public function ports(): BelongsToMany
@@ -77,17 +91,34 @@ class Software extends Model
 
     /**
      * Scope a query to only include active software.
+     *
+     * @param  Builder<Software>  $query
+     * @return Builder<Software>
      */
-    public function scopeActive($query)
+    public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
     }
 
     /**
-     * Scope a query to filter by category.
+     * Scope a query to filter by category (legacy string field).
+     *
+     * @param  Builder<Software>  $query
+     * @return Builder<Software>
      */
-    public function scopeByCategory($query, string $category)
+    public function scopeByCategory(Builder $query, string $category): Builder
     {
         return $query->where('category', $category);
+    }
+
+    /**
+     * Scope a query to filter by category ID.
+     *
+     * @param  Builder<Software>  $query
+     * @return Builder<Software>
+     */
+    public function scopeByCategoryId(Builder $query, int $categoryId): Builder
+    {
+        return $query->where('category_id', $categoryId);
     }
 }
