@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
 
@@ -16,7 +17,8 @@ class Software extends Model
     protected $fillable = [
         'name',
         'slug',
-        'category',
+        'category', // Legacy string field (deprecated)
+        'category_id', // New foreign key
         'vendor',
         'website_url',
         'description',
@@ -56,6 +58,14 @@ class Software extends Model
     }
 
     /**
+     * Get the category this software belongs to.
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    /**
      * Get the ports that use this software.
      */
     public function ports(): BelongsToMany
@@ -84,10 +94,18 @@ class Software extends Model
     }
 
     /**
-     * Scope a query to filter by category.
+     * Scope a query to filter by category (legacy string field).
      */
     public function scopeByCategory($query, string $category)
     {
         return $query->where('category', $category);
+    }
+
+    /**
+     * Scope a query to filter by category ID.
+     */
+    public function scopeByCategoryId($query, int $categoryId)
+    {
+        return $query->where('category_id', $categoryId);
     }
 }

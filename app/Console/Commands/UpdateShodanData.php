@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Category;
 use App\Models\Port;
 use App\Models\PortSecurity;
 use App\Models\Software;
@@ -306,7 +307,7 @@ class UpdateShodanData extends Command
             }
 
             // Determine category from product name
-            $category = $this->determineSoftwareCategory($productName, $port->port_number);
+            $categoryId = $this->determineSoftwareCategoryId($productName, $port->port_number);
 
             // Find or create software (using slug as unique identifier)
             $slug = \Illuminate\Support\Str::slug($productName);
@@ -316,7 +317,7 @@ class UpdateShodanData extends Command
                 $software = Software::create([
                     'name' => $productName,
                     'slug' => $slug,
-                    'category' => $category,
+                    'category_id' => $categoryId,
                     'is_active' => true,
                 ]);
             }
@@ -333,71 +334,69 @@ class UpdateShodanData extends Command
     }
 
     /**
-     * Determine software category from product name and port.
+     * Determine software category ID from product name and port.
      */
-    private function determineSoftwareCategory(string $productName, int $portNumber): string
+    private function determineSoftwareCategoryId(string $productName, int $portNumber): ?int
     {
         $productLower = strtolower($productName);
+        $categorySlug = null;
 
         // Web servers
         if (in_array($portNumber, [80, 443, 8080, 8443, 8888]) ||
             str_contains($productLower, 'nginx') ||
             str_contains($productLower, 'apache') ||
             str_contains($productLower, 'iis') ||
-            str_contains($productLower, 'httpd')) {
-            return 'Web Server';
+            str_contains($productLower, 'httpd') ||
+            str_contains($productLower, 'cloudflare') ||
+            str_contains($productLower, 'akamai') ||
+            str_contains($productLower, 'cloudfront') ||
+            str_contains($productLower, 'elb')) {
+            $categorySlug = 'web-services';
         }
-
         // Databases
-        if (in_array($portNumber, [3306, 5432, 1433, 27017, 6379, 5984, 9200]) ||
+        elseif (in_array($portNumber, [3306, 5432, 1433, 27017, 6379, 5984, 9200]) ||
             str_contains($productLower, 'mysql') ||
             str_contains($productLower, 'postgres') ||
             str_contains($productLower, 'mariadb') ||
             str_contains($productLower, 'mongodb') ||
             str_contains($productLower, 'redis') ||
             str_contains($productLower, 'elasticsearch')) {
-            return 'Database';
+            $categorySlug = 'database';
         }
-
         // SSH/Remote Access
-        if (in_array($portNumber, [22, 3389, 5900]) ||
+        elseif (in_array($portNumber, [22, 3389, 5900]) ||
             str_contains($productLower, 'ssh') ||
             str_contains($productLower, 'openssh') ||
             str_contains($productLower, 'dropbear')) {
-            return 'Remote Access';
+            $categorySlug = 'remote-access';
         }
-
         // FTP
-        if (in_array($portNumber, [21, 20, 990]) ||
+        elseif (in_array($portNumber, [21, 20, 990]) ||
             str_contains($productLower, 'ftp') ||
             str_contains($productLower, 'vsftpd') ||
             str_contains($productLower, 'proftpd')) {
-            return 'File Transfer';
+            $categorySlug = 'file-transfer';
         }
-
         // Email
-        if (in_array($portNumber, [25, 587, 465, 110, 995, 143, 993]) ||
+        elseif (in_array($portNumber, [25, 587, 465, 110, 995, 143, 993]) ||
             str_contains($productLower, 'smtp') ||
             str_contains($productLower, 'postfix') ||
             str_contains($productLower, 'exim') ||
             str_contains($productLower, 'dovecot')) {
-            return 'Email';
+            $categorySlug = 'email';
         }
-
         // DNS
-        if ($portNumber == 53 || str_contains($productLower, 'bind') || str_contains($productLower, 'dns')) {
-            return 'DNS';
+        elseif ($portNumber == 53 || str_contains($productLower, 'bind') || str_contains($productLower, 'dns')) {
+            $categorySlug = 'dns';
         }
 
-        // CDN/Load Balancer
-        if (str_contains($productLower, 'cloudflare') ||
-            str_contains($productLower, 'akamai') ||
-            str_contains($productLower, 'cloudfront') ||
-            str_contains($productLower, 'elb')) {
-            return 'CDN/Load Balancer';
+        // Look up category by slug
+        if ($categorySlug) {
+            $category = Category::where('slug', $categorySlug)->first();
+            return $category ? $category->id : null;
         }
 
-        return 'Other';
+        return null;
     }
 
     /**
