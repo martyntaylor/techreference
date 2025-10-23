@@ -210,11 +210,12 @@ class Port extends Model
     }
 
     /**
-     * Get the security information for this port.
+     * Get the security information for this port number.
+     * Note: Security data is shared across all protocols (TCP, UDP, SCTP) for the same port_number.
      */
     public function security(): HasOne
     {
-        return $this->hasOne(PortSecurity::class);
+        return $this->hasOne(PortSecurity::class, 'port_number', 'port_number');
     }
 
     /**
@@ -297,5 +298,16 @@ class Port extends Model
         return $this->belongsToMany(Category::class, 'port_categories')
             ->wherePivot('is_primary', true)
             ->withTimestamps();
+    }
+
+    /**
+     * Get CVEs for this port number (via pivot table).
+     */
+    public function cves(): BelongsToMany
+    {
+        return $this->belongsToMany(Cve::class, 'cve_port', 'port_number', 'cve_id', 'port_number', 'cve_id')
+            ->withPivot('relevance_score')
+            ->withTimestamps()
+            ->orderBy('published_date', 'desc');
     }
 }

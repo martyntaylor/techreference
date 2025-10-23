@@ -23,22 +23,26 @@ class CategoryController extends Controller
         // Get filters from request
         $protocol = $request->input('protocol');
         $riskLevel = $request->input('risk_level');
-        $sort = $request->input('sort', 'port_number'); // port_number, name, risk
+        $cveSeverity = $request->input('cve_severity');
+        $minExposures = $request->input('min_exposures');
+        $sort = $request->input('sort', 'port_number');
         $page = $request->input('page', 1);
         $perPage = 50;
 
         // Build cache key based on filters (without page)
         $cacheKey = sprintf(
-            'category:%s:protocol:%s:risk:%s:sort:%s',
+            'category:%s:protocol:%s:risk:%s:cve:%s:exp:%s:sort:%s',
             $category->slug,
             $protocol ?? 'all',
             $riskLevel ?? 'all',
+            $cveSeverity ?? 'all',
+            $minExposures ?? 'all',
             $sort
         );
 
         // Cache the full collection for 1 hour (limit to 2000 items for memory safety)
         $categoryId = $category->id;
-        $allPorts = Cache::remember($cacheKey, 3600, function () use ($categoryId, $protocol, $riskLevel, $sort) {
+        $allPorts = Cache::remember($cacheKey, 3600, function () use ($categoryId, $protocol, $riskLevel, $cveSeverity, $minExposures, $sort) {
             // Start with Port model to use query scopes
             $query = Port::query()
                 ->whereHas('categories', fn ($q) => $q->where('categories.id', $categoryId))
@@ -53,6 +57,36 @@ class CategoryController extends Controller
                 $query->byRisk($riskLevel);
             }
 
+            // CVE severity filter
+            if ($cveSeverity) {
+                $query->whereHas('security', function ($q) use ($cveSeverity) {
+                    switch ($cveSeverity) {
+                        case 'critical':
+                            $q->where('cve_critical_count', '>', 0);
+                            break;
+                        case 'high':
+                            $q->where('cve_high_count', '>', 0);
+                            break;
+                        case 'medium':
+                            $q->where('cve_medium_count', '>', 0);
+                            break;
+                        case 'low':
+                            $q->where('cve_low_count', '>', 0);
+                            break;
+                        case 'none':
+                            $q->where('cve_count', 0);
+                            break;
+                    }
+                });
+            }
+
+            // Minimum exposures filter
+            if ($minExposures) {
+                $query->whereHas('security', function ($q) use ($minExposures) {
+                    $q->where('shodan_exposed_count', '>=', (int) $minExposures);
+                });
+            }
+
             // Apply sorting
             switch ($sort) {
                 case 'name':
@@ -60,6 +94,21 @@ class CategoryController extends Controller
                     break;
                 case 'risk':
                     $query->orderByRaw("CASE risk_level WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 WHEN 'Low' THEN 3 END");
+                    break;
+                case 'exposures':
+                    $query->leftJoin('port_security', 'ports.port_number', '=', 'port_security.port_number')
+                        ->orderBy('port_security.shodan_exposed_count', 'desc')
+                        ->select('ports.*');
+                    break;
+                case 'cves':
+                    $query->leftJoin('port_security', 'ports.port_number', '=', 'port_security.port_number')
+                        ->orderBy('port_security.cve_count', 'desc')
+                        ->select('ports.*');
+                    break;
+                case 'cvss':
+                    $query->leftJoin('port_security', 'ports.port_number', '=', 'port_security.port_number')
+                        ->orderBy('port_security.cve_avg_score', 'desc')
+                        ->select('ports.*');
                     break;
                 case 'popular':
                     $query->orderBy('view_count', 'desc');
@@ -109,13 +158,64 @@ class CategoryController extends Controller
             ];
         });
 
+        // Get category-level statistics
+        $categoryStats = Cache::remember("category:{$category->slug}:stats", 3600, function () use ($categoryId) {
+            // Get security statistics from ports in this category
+            // Use DB query builder to avoid BelongsToMany pivot column issues
+            $securityStats = \DB::table('ports')
+                ->join('port_categories', 'ports.id', '=', 'port_categories.port_id')
+                ->join('port_security', 'ports.port_number', '=', 'port_security.port_number')
+                ->where('port_categories.category_id', $categoryId)
+                ->selectRaw('
+                    SUM(port_security.shodan_exposed_count) as total_exposures,
+                    SUM(port_security.cve_count) as total_cves,
+                    SUM(port_security.cve_critical_count) as total_critical_cves,
+                    SUM(port_security.cve_high_count) as total_high_cves,
+                    AVG(port_security.cve_avg_score) as avg_cvss_score,
+                    MAX(port_security.shodan_exposed_count) as max_exposures,
+                    MAX(port_security.cve_count) as max_cves
+                ')
+                ->first();
+
+            // Get port with most exposures
+            $mostExposedPort = \DB::table('ports')
+                ->join('port_categories', 'ports.id', '=', 'port_categories.port_id')
+                ->join('port_security', 'ports.port_number', '=', 'port_security.port_number')
+                ->where('port_categories.category_id', $categoryId)
+                ->orderBy('port_security.shodan_exposed_count', 'desc')
+                ->select('ports.port_number', 'ports.service_name', 'port_security.shodan_exposed_count')
+                ->first();
+
+            // Get port with most CVEs
+            $mostVulnerablePort = \DB::table('ports')
+                ->join('port_categories', 'ports.id', '=', 'port_categories.port_id')
+                ->join('port_security', 'ports.port_number', '=', 'port_security.port_number')
+                ->where('port_categories.category_id', $categoryId)
+                ->orderBy('port_security.cve_count', 'desc')
+                ->select('ports.port_number', 'ports.service_name', 'port_security.cve_count')
+                ->first();
+
+            return [
+                'total_exposures' => $securityStats->total_exposures ?? 0,
+                'total_cves' => $securityStats->total_cves ?? 0,
+                'total_critical_cves' => $securityStats->total_critical_cves ?? 0,
+                'total_high_cves' => $securityStats->total_high_cves ?? 0,
+                'avg_cvss_score' => $securityStats->avg_cvss_score ? round($securityStats->avg_cvss_score, 1) : null,
+                'most_exposed_port' => $mostExposedPort,
+                'most_vulnerable_port' => $mostVulnerablePort,
+            ];
+        });
+
         return view('ports.category', [
             'category' => $category,
             'ports' => $ports,
             'filterCounts' => $filterCounts,
+            'categoryStats' => $categoryStats,
             'currentFilters' => [
                 'protocol' => $protocol,
                 'risk_level' => $riskLevel,
+                'cve_severity' => $cveSeverity,
+                'min_exposures' => $minExposures,
                 'sort' => $sort,
             ],
         ]);

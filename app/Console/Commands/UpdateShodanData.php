@@ -242,9 +242,9 @@ class UpdateShodanData extends Command
             $updateData['top_asns'] = $topAsns;
         }
 
-        // Update or create port_security record
+        // Update or create port_security record (keyed by port_number, not port_id)
         PortSecurity::updateOrCreate(
-            ['port_id' => $port->id],
+            ['port_number' => $portNumber],
             $updateData
         );
 

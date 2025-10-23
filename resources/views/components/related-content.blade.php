@@ -29,6 +29,33 @@
                                 @if(isset($item['risk_level']))
                                     <x-security-badge :level="$item['risk_level']" size="sm" />
                                 @endif
+                                @if(isset($item['relation_type']))
+                                    @php
+                                        $relationLabel = match($item['relation_type']) {
+                                            'alternative' => 'Alternative',
+                                            'secure_version' => 'Secure Version',
+                                            'deprecated_by' => 'Deprecated By',
+                                            'part_of_suite' => 'Part of Suite',
+                                            'conflicts_with' => 'Conflicts With',
+                                            'complementary' => 'Complementary',
+                                            'associated_with' => 'Associated With',
+                                            default => ucfirst(str_replace('_', ' ', $item['relation_type']))
+                                        };
+                                        $relationColor = match($item['relation_type']) {
+                                            'alternative' => 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+                                            'secure_version' => 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+                                            'deprecated_by' => 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+                                            'part_of_suite' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+                                            'conflicts_with' => 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+                                            'complementary' => 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300',
+                                            'associated_with' => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+                                            default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                        };
+                                    @endphp
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $relationColor }}">
+                                        {{ $relationLabel }}
+                                    </span>
+                                @endif
                             @elseif($type === 'errors')
                                 <span class="text-lg font-bold text-red-600 dark:text-red-400">
                                     {{ $item['code'] ?? $item['id'] }}
@@ -44,7 +71,11 @@
                             {{ $item['name'] ?? $item['title'] }}
                         </h4>
 
-                        @if(isset($item['description']))
+                        @if(isset($item['relation_description']))
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 italic">
+                                {{ $item['relation_description'] }}
+                            </p>
+                        @elseif(isset($item['description']))
                             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
                                 {{ \Illuminate\Support\Str::limit($item['description'], 120) }}
                             </p>

@@ -21,7 +21,7 @@ class PortSecurity extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'port_id',
+        'port_number',
         'shodan_exposed_count',
         'shodan_updated_at',
         'censys_exposed_count',
@@ -71,11 +71,20 @@ class PortSecurity extends Model
     ];
 
     /**
-     * Get the port that owns this security data.
+     * Get the ports that use this port number (typically multiple protocols).
+     * Note: This returns all port records (TCP, UDP, SCTP) for the same port_number.
+     */
+    public function ports()
+    {
+        return $this->hasMany(Port::class, 'port_number', 'port_number');
+    }
+
+    /**
+     * Get the primary port (typically TCP) for this port number.
      */
     public function port(): BelongsTo
     {
-        return $this->belongsTo(Port::class);
+        return $this->belongsTo(Port::class, 'port_number', 'port_number');
     }
 
     /**

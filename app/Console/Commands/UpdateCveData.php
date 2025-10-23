@@ -2,11 +2,13 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Cve;
 use App\Models\Port;
 use App\Models\PortSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 class UpdateCveData extends Command
@@ -65,42 +67,38 @@ class UpdateCveData extends Command
             return self::SUCCESS;
         }
 
-        $this->info("Processing {$ports->count()} ports...");
-        $progressBar = $this->output->createProgressBar($ports->count());
+        // Group ports by port_number to avoid processing duplicates
+        $uniquePortNumbers = $ports->pluck('port_number')->unique()->sort()->values();
+
+        $this->info("Processing {$uniquePortNumbers->count()} unique port numbers...");
+        $progressBar = $this->output->createProgressBar($uniquePortNumbers->count());
         $progressBar->start();
 
-        // Group ports by service name to minimize API calls
-        $serviceGroups = $this->groupPortsByService($ports);
-        $this->info("\nGrouped into {$serviceGroups->count()} unique services");
-        $this->newLine();
-
-        foreach ($serviceGroups as $serviceName => $servicePorts) {
+        foreach ($uniquePortNumbers as $portNumber) {
             try {
-                // Check if cached to avoid unnecessary rate limiting
-                $cacheKey = 'cve:service:'.md5($serviceName);
+                // Check if cached
+                $cacheKey = 'cve:port:' . $portNumber;
                 $isCached = Cache::has($cacheKey);
 
-                // Fetch CVE data for this service (with caching)
-                $cveData = $this->fetchCveDataForService($serviceName, $cacheKey);
+                // Fetch CVE data for this port number (with caching)
+                $cveRecords = $this->fetchCveDataForPort($portNumber, $cacheKey);
 
-                // Update all ports using this service
-                foreach ($servicePorts as $port) {
-                    $this->updatePortSecurity($port, $cveData);
-                    $this->updated++;
-                    $progressBar->advance();
-                }
+                // Store CVEs and link to port
+                $this->storeCveRecords($portNumber, $cveRecords);
 
-                $this->processed += $servicePorts->count();
+                $this->updated++;
+                $this->processed++;
+                $progressBar->advance();
 
                 // Rate limiting: Only sleep after actual API calls, not cached data
-                if (! $isCached) {
+                if (!$isCached && count($cveRecords) > 0) {
                     sleep($this->requestDelay);
                 }
             } catch (\Exception $e) {
-                $this->errors += $servicePorts->count();
-                $progressBar->advance($servicePorts->count());
+                $this->errors++;
+                $progressBar->advance();
                 $this->newLine();
-                $this->error("Error processing service '{$serviceName}': {$e->getMessage()}");
+                $this->error("Error processing port {$portNumber}: {$e->getMessage()}");
             }
         }
 
@@ -480,7 +478,7 @@ class UpdateCveData extends Command
     private function updatePortSecurity(Port $port, array $cveData): void
     {
         PortSecurity::updateOrCreate(
-            ['port_id' => $port->id],
+            ['port_number' => $port->port_number],
             [
                 'cve_count' => $cveData['count'],
                 'cve_critical_count' => $cveData['critical_count'],
@@ -494,6 +492,221 @@ class UpdateCveData extends Command
                 'cve_updated_at' => now(),
             ]
         );
+    }
+
+    /**
+     * Fetch CVE data for a specific port number from NVD API (with caching).
+     *
+     * @return array<int, array{cve_id: string, description: string, published_date: string, cvss_score: float|null, severity: string|null, weakness_types: array, references: array}>
+     */
+    private function fetchCveDataForPort(int $portNumber, string $cacheKey): array
+    {
+        // Return cached data if available
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
+        }
+
+        // Query NVD API for port-specific CVEs
+        $cveRecords = $this->queryNvdApiByPort($portNumber);
+
+        // Cache result (24 hours)
+        Cache::put($cacheKey, $cveRecords, 86400);
+
+        return $cveRecords;
+    }
+
+    /**
+     * Query NVD API for CVEs mentioning a specific port number.
+     *
+     * @return array<int, array{cve_id: string, description: string, published_date: string, cvss_score: float|null, severity: string|null, weakness_types: array, references: array}>
+     */
+    private function queryNvdApiByPort(int $portNumber): array
+    {
+        $url = $this->nvdEndpoint;
+        $cveRecords = [];
+
+        // Try multiple search patterns for better coverage
+        $searchPatterns = [
+            "TCP port {$portNumber}",
+            "port {$portNumber}/tcp",
+            "UDP port {$portNumber}",
+            "port {$portNumber}/udp",
+        ];
+
+        foreach ($searchPatterns as $pattern) {
+            try {
+                $request = Http::timeout(30)->retry(3, 1000);
+
+                // Add API key if available
+                if (!empty($this->nvdApiKey)) {
+                    $request->withHeaders(['apiKey' => $this->nvdApiKey]);
+                }
+
+                $params = [
+                    'keywordSearch' => $pattern,
+                    'resultsPerPage' => 100, // Limit per pattern to avoid too much data
+                ];
+
+                $response = $request->get($url, $params);
+
+                if ($response->successful()) {
+                    $data = $response->json();
+                    $vulnerabilities = $data['vulnerabilities'] ?? [];
+
+                    foreach ($vulnerabilities as $vuln) {
+                        $cve = $vuln['cve'];
+                        $cveId = $cve['id'];
+
+                        // Skip if we already have this CVE
+                        if (isset($cveRecords[$cveId])) {
+                            continue;
+                        }
+
+                        // Extract CVSS score and severity
+                        $cvssScore = null;
+                        $severity = null;
+                        if (isset($cve['metrics']['cvssMetricV31'][0])) {
+                            $cvssScore = $cve['metrics']['cvssMetricV31'][0]['cvssData']['baseScore'] ?? null;
+                            $severity = $cve['metrics']['cvssMetricV31'][0]['cvssData']['baseSeverity'] ?? null;
+                        } elseif (isset($cve['metrics']['cvssMetricV2'][0])) {
+                            $cvssScore = $cve['metrics']['cvssMetricV2'][0]['cvssData']['baseScore'] ?? null;
+                            $severity = $cve['metrics']['cvssMetricV2'][0]['baseSeverity'] ?? null;
+                        }
+
+                        // Extract weakness types (CWE)
+                        $weaknessTypes = [];
+                        foreach ($cve['weaknesses'] ?? [] as $weakness) {
+                            foreach ($weakness['description'] ?? [] as $desc) {
+                                if (isset($desc['value']) && str_starts_with($desc['value'], 'CWE-')) {
+                                    $weaknessTypes[] = $desc['value'];
+                                }
+                            }
+                        }
+
+                        // Extract references
+                        $references = [];
+                        foreach ($cve['references'] ?? [] as $ref) {
+                            if (isset($ref['url'])) {
+                                $references[] = $ref['url'];
+                            }
+                        }
+
+                        $cveRecords[$cveId] = [
+                            'cve_id' => $cveId,
+                            'description' => $cve['descriptions'][0]['value'] ?? '',
+                            'published_date' => $cve['published'] ?? null,
+                            'last_modified_date' => $cve['lastModified'] ?? null,
+                            'cvss_score' => $cvssScore,
+                            'severity' => $severity,
+                            'weakness_types' => $weaknessTypes,
+                            'references' => array_slice($references, 0, 10), // Limit to 10 refs
+                        ];
+                    }
+                }
+
+                // Rate limiting between search patterns
+                if (count($searchPatterns) > 1) {
+                    sleep(1);
+                }
+            } catch (\Exception $e) {
+                // Continue with other patterns if one fails
+                continue;
+            }
+        }
+
+        // Sort by published date (most recent first)
+        usort($cveRecords, function ($a, $b) {
+            return strcmp($b['published_date'] ?? '', $a['published_date'] ?? '');
+        });
+
+        return $cveRecords;
+    }
+
+    /**
+     * Store CVE records and link them to the port.
+     */
+    private function storeCveRecords(int $portNumber, array $cveRecords): void
+    {
+        if (empty($cveRecords)) {
+            return;
+        }
+
+        DB::transaction(function () use ($portNumber, $cveRecords) {
+            $criticalCount = 0;
+            $highCount = 0;
+            $mediumCount = 0;
+            $lowCount = 0;
+            $scores = [];
+            $latestCve = null;
+
+            foreach ($cveRecords as $cveData) {
+                // Create or update CVE record
+                $cve = Cve::updateOrCreate(
+                    ['cve_id' => $cveData['cve_id']],
+                    [
+                        'description' => $cveData['description'],
+                        'published_date' => $cveData['published_date'],
+                        'last_modified_date' => $cveData['last_modified_date'] ?? null,
+                        'cvss_score' => $cveData['cvss_score'],
+                        'severity' => $cveData['severity'],
+                        'weakness_types' => $cveData['weakness_types'],
+                        'references' => $cveData['references'],
+                        'source' => 'NVD',
+                    ]
+                );
+
+                // Link CVE to port (using port_number, not port ID)
+                DB::table('cve_port')->updateOrInsert(
+                    [
+                        'cve_id' => $cve->cve_id,
+                        'port_number' => $portNumber,
+                    ],
+                    [
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
+
+                // Track counts for summary
+                if (!$latestCve) {
+                    $latestCve = $cveData['cve_id'];
+                }
+
+                if ($cveData['cvss_score']) {
+                    $scores[] = $cveData['cvss_score'];
+                }
+
+                switch (strtoupper($cveData['severity'] ?? '')) {
+                    case 'CRITICAL':
+                        $criticalCount++;
+                        break;
+                    case 'HIGH':
+                        $highCount++;
+                        break;
+                    case 'MEDIUM':
+                        $mediumCount++;
+                        break;
+                    case 'LOW':
+                        $lowCount++;
+                        break;
+                }
+            }
+
+            // Update port_security summary
+            PortSecurity::updateOrCreate(
+                ['port_number' => $portNumber],
+                [
+                    'cve_count' => count($cveRecords),
+                    'cve_critical_count' => $criticalCount,
+                    'cve_high_count' => $highCount,
+                    'cve_medium_count' => $mediumCount,
+                    'cve_low_count' => $lowCount,
+                    'cve_avg_score' => !empty($scores) ? round(array_sum($scores) / count($scores), 1) : null,
+                    'latest_cve' => $latestCve,
+                    'cve_updated_at' => now(),
+                ]
+            );
+        });
     }
 
     /**
