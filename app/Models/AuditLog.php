@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class AuditLog extends Model
 {
@@ -35,6 +36,8 @@ class AuditLog extends Model
 
     /**
      * Get the user that performed the action.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\User, \App\Models\AuditLog>
      */
     public function user(): BelongsTo
     {
@@ -43,20 +46,25 @@ class AuditLog extends Model
 
     /**
      * Get the auditable model.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphTo<\Illuminate\Database\Eloquent\Model, \App\Models\AuditLog>
      */
-    public function auditable()
+    public function auditable(): MorphTo
     {
         return $this->morphTo();
     }
 
     /**
      * Log an audit entry.
+     *
+     * @param  array<string, mixed>|null  $oldValues
+     * @param  array<string, mixed>|null  $newValues
      */
     public static function log(
         string $action,
         ?Model $model = null,
-        ?array $oldValues = null,
-        ?array $newValues = null
+        array|null $oldValues = null,
+        array|null $newValues = null
     ): self {
         return self::create([
             'user_id' => auth()->id(),
