@@ -453,43 +453,45 @@
 
 ## 11. Performance Optimization
 
+**See `.claude/docs/performance-optimizations-implemented.md` for detailed documentation**
+
 ### 11.1 Database Optimization
-- [ ] Use eager loading to prevent N+1 queries
-  - [ ] `Port::with('software', 'security', 'configs', 'issues', 'relatedPorts')`
-- [ ] Add database indexes on foreign keys
-- [ ] Use `select()` to fetch only needed columns
-- [ ] Implement pagination for large result sets
-- [ ] Use `chunk()` for bulk operations
-- [ ] Analyze slow queries with Laravel Telescope/Debugbar
+- [x] Use eager loading to prevent N+1 queries
+  - [x] `Port::with('software', 'security', 'configs', 'issues', 'relatedPorts')`
+- [x] Add database indexes on foreign keys (comprehensive indexing in migration)
+- [x] Use `select()` to fetch only needed columns
+- [x] Implement pagination for large result sets
+- [x] Use `chunk()` for bulk operations (UpdateCveData command)
+- [ ] Analyze slow queries with Laravel Telescope/Debugbar (not installed)
 
 ### 11.2 Query Optimization
-- [ ] Use `whereHas()` efficiently for relationship filtering
-- [ ] Avoid `count()` in loops (use `withCount()`)
-- [ ] Use database views for complex aggregations
-- [ ] Implement query caching for frequently accessed data
-- [ ] Use `lazy()` for memory-efficient iteration
+- [x] Use `whereHas()` efficiently for relationship filtering
+- [x] Avoid `count()` in loops (use `withCount()`)
+- [x] Use database views for complex aggregations (materialized views)
+- [x] Implement query caching for frequently accessed data
+- [ ] Use `lazy()` for memory-efficient iteration (not yet needed)
 
 ### 11.3 Frontend Optimization
-- [ ] Minify CSS and JavaScript (Vite handles this)
-- [ ] Implement lazy loading for images
-- [ ] Use CDN for static assets
-- [ ] Implement browser caching headers
-- [ ] Use HTTP/2 server push for critical resources
-- [ ] Defer non-critical JavaScript
-- [ ] Inline critical CSS
+- [x] Minify CSS and JavaScript (Vite handles this)
+- [x] Implement lazy loading for images (N/A - no images yet)
+- [ ] Use CDN for static assets (infrastructure task)
+- [x] Implement browser caching headers (Cache-Control via middleware)
+- [ ] Use HTTP/2 server push for critical resources (server config)
+- [ ] Defer non-critical JavaScript (when needed)
+- [ ] Inline critical CSS (when needed)
 
 ### 11.4 Response Optimization
-- [ ] Use HTTP caching (ETag, Last-Modified)
-- [ ] Implement response compression (gzip/brotli)
-- [ ] Use cache-control headers appropriately
-- [ ] Implement conditional requests (304 Not Modified)
+- [x] Use HTTP caching (ETag, Last-Modified) - **NEW: AddETagHeader middleware**
+- [ ] Implement response compression (gzip/brotli) - server config needed
+- [x] Use cache-control headers appropriately (CacheResponse middleware)
+- [x] Implement conditional requests (304 Not Modified) - **NEW: AddETagHeader middleware**
 
 ### 11.5 Asset Optimization
-- [ ] Optimize images (WebP format)
-- [ ] Use responsive images (srcset)
-- [ ] Lazy load below-the-fold content
-- [ ] Code splitting for JavaScript
-- [ ] Tree-shake unused CSS/JS
+- [ ] Optimize images (WebP format) - when images are added
+- [ ] Use responsive images (srcset) - when images are added
+- [ ] Lazy load below-the-fold content - when needed
+- [x] Code splitting for JavaScript - **NEW: Vite config updated**
+- [x] Tree-shake unused CSS/JS (Vite handles this)
 
 ---
 

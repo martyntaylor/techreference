@@ -58,44 +58,51 @@ class UpdateCveData extends Command
         $this->loadConfiguration();
         $this->displayConfiguration();
 
-        // Get ports to process
-        $ports = $this->getPortsToProcess();
+        // Get total count for progress bar
+        $query = $this->getPortsQuery();
+        $totalCount = $query->distinct('port_number')->count('port_number');
 
-        if ($ports->isEmpty()) {
+        if ($totalCount === 0) {
             $this->info('No ports to process.');
 
             return self::SUCCESS;
         }
 
-        // Group ports by port_number to avoid processing duplicates
-        $uniquePortNumbers = $ports->pluck('port_number')->unique()->sort()->values();
-
-        $this->info("Processing {$uniquePortNumbers->count()} unique port numbers...");
-        $progressBar = $this->output->createProgressBar($uniquePortNumbers->count());
+        $this->info("Processing {$totalCount} unique port numbers...");
+        $progressBar = $this->output->createProgressBar($totalCount);
         $progressBar->start();
 
-        foreach ($uniquePortNumbers as $portNumber) {
-            try {
-                // Fetch CVE data for this port number (with caching)
-                $cacheKey = 'cve:port:' . $portNumber;
-                $cveRecords = $this->fetchCveDataForPort($portNumber, $cacheKey);
+        // Use chunk() for memory-efficient iteration
+        // Process in chunks of 100 ports to avoid loading all ports into memory
+        $query->select('port_number')
+            ->distinct()
+            ->orderBy('port_number')
+            ->chunk(100, function ($ports) use ($progressBar) {
+                foreach ($ports as $port) {
+                    $portNumber = $port->port_number;
 
-                // Store CVEs and link to port
-                $this->storeCveRecords($portNumber, $cveRecords);
+                    try {
+                        // Fetch CVE data for this port number (with caching)
+                        $cacheKey = 'cve:port:'.$portNumber;
+                        $cveRecords = $this->fetchCveDataForPort($portNumber, $cacheKey);
 
-                $this->updated++;
-                $this->processed++;
-                $progressBar->advance();
+                        // Store CVEs and link to port
+                        $this->storeCveRecords($portNumber, $cveRecords);
 
-                // Note: Rate limiting is handled per-request in queryNvdApiByPort()
-                // No additional port-level delay needed since we sleep between API requests
-            } catch (\Exception $e) {
-                $this->errors++;
-                $progressBar->advance();
-                $this->newLine();
-                $this->error("Error processing port {$portNumber}: {$e->getMessage()}");
-            }
-        }
+                        $this->updated++;
+                        $this->processed++;
+                        $progressBar->advance();
+
+                        // Note: Rate limiting is handled per-request in queryNvdApiByPort()
+                        // No additional port-level delay needed since we sleep between API requests
+                    } catch (\Exception $e) {
+                        $this->errors++;
+                        $progressBar->advance();
+                        $this->newLine();
+                        $this->error("Error processing port {$portNumber}: {$e->getMessage()}");
+                    }
+                }
+            });
 
         $progressBar->finish();
         $this->newLine(2);
@@ -138,11 +145,11 @@ class UpdateCveData extends Command
     }
 
     /**
-     * Get ports to process based on command options.
+     * Get base query for ports to process (returns query, not collection for memory efficiency).
      *
-     * @return Collection<int, Port>
+     * @return \Illuminate\Database\Eloquent\Builder
      */
-    private function getPortsToProcess(): Collection
+    private function getPortsQuery()
     {
         $query = Port::query();
 
@@ -168,7 +175,7 @@ class UpdateCveData extends Command
             });
         }
 
-        return $query->get();
+        return $query;
     }
 
     /**
@@ -187,7 +194,7 @@ class UpdateCveData extends Command
         $cveRecords = $this->queryNvdApiByPort($portNumber);
 
         // Cache result: 24 hours if we have data, 1 hour for empty (to avoid repeated API calls)
-        $cacheDuration = !empty($cveRecords) ? 86400 : 3600;
+        $cacheDuration = ! empty($cveRecords) ? 86400 : 3600;
         Cache::put($cacheKey, $cveRecords, $cacheDuration);
 
         return $cveRecords;
@@ -222,11 +229,11 @@ class UpdateCveData extends Command
                 $patternCompleted = false;
 
                 // Paginate through all results for this pattern
-                while (!$patternCompleted) {
+                while (! $patternCompleted) {
                     $request = Http::timeout(30)->retry(3, 1000);
 
                     // Add API key if available
-                    if (!empty($this->nvdApiKey)) {
+                    if (! empty($this->nvdApiKey)) {
                         $request->withHeaders(['apiKey' => $this->nvdApiKey]);
                     }
 
@@ -250,12 +257,12 @@ class UpdateCveData extends Command
 
                         foreach ($vulnerabilities as $vuln) {
                             $cve = $vuln['cve'] ?? null;
-                            if (!$cve) {
+                            if (! $cve) {
                                 continue;
                             }
 
                             $cveId = $cve['id'] ?? null;
-                            if (!$cveId) {
+                            if (! $cveId) {
                                 continue;
                             }
 
@@ -344,6 +351,7 @@ class UpdateCveData extends Command
             } catch (\Exception $e) {
                 // Log error but continue with other patterns
                 $this->warn("Error querying pattern '{$pattern}' for port {$portNumber}: {$e->getMessage()}");
+
                 continue;
             }
         }
@@ -404,7 +412,7 @@ class UpdateCveData extends Command
                 );
 
                 // Track counts for summary
-                if (!$latestCve) {
+                if (! $latestCve) {
                     $latestCve = $cveData['cve_id'];
                 }
 
@@ -437,7 +445,7 @@ class UpdateCveData extends Command
                     'cve_high_count' => $highCount,
                     'cve_medium_count' => $mediumCount,
                     'cve_low_count' => $lowCount,
-                    'cve_avg_score' => !empty($scores) ? round(array_sum($scores) / count($scores), 1) : null,
+                    'cve_avg_score' => ! empty($scores) ? round(array_sum($scores) / count($scores), 1) : null,
                     'latest_cve' => $latestCve,
                     'cve_updated_at' => now(),
                 ]
