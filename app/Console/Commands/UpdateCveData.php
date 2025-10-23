@@ -58,51 +58,48 @@ class UpdateCveData extends Command
         $this->loadConfiguration();
         $this->displayConfiguration();
 
-        // Get total count for progress bar
-        $query = $this->getPortsQuery();
-        $totalCount = $query->distinct('port_number')->count('port_number');
+        // Get unique port numbers using type-safe pluck()
+        // pluck() returns Collection<int> instead of Collection<Model> for better type safety
+        $portNumbers = $this->getPortsQuery()
+            ->distinct('port_number')
+            ->orderBy('port_number')
+            ->pluck('port_number');
 
-        if ($totalCount === 0) {
+        if ($portNumbers->isEmpty()) {
             $this->info('No ports to process.');
 
             return self::SUCCESS;
         }
 
-        $this->info("Processing {$totalCount} unique port numbers...");
-        $progressBar = $this->output->createProgressBar($totalCount);
+        $this->info("Processing {$portNumbers->count()} unique port numbers...");
+        $progressBar = $this->output->createProgressBar($portNumbers->count());
         $progressBar->start();
 
-        // Use chunk() for memory-efficient iteration
-        // Process in chunks of 100 ports to avoid loading all ports into memory
-        $query->select('port_number')
-            ->distinct()
-            ->orderBy('port_number')
-            ->chunk(100, function ($ports) use ($progressBar) {
-                foreach ($ports as $port) {
-                    $portNumber = $port->port_number;
+        // Process in chunks of 100 for memory efficiency
+        $portNumbers->chunk(100)->each(function ($portNumberChunk) use ($progressBar) {
+            foreach ($portNumberChunk as $portNumber) {
+                try {
+                    // Fetch CVE data for this port number (with caching)
+                    $cacheKey = 'cve:port:'.$portNumber;
+                    $cveRecords = $this->fetchCveDataForPort($portNumber, $cacheKey);
 
-                    try {
-                        // Fetch CVE data for this port number (with caching)
-                        $cacheKey = 'cve:port:'.$portNumber;
-                        $cveRecords = $this->fetchCveDataForPort($portNumber, $cacheKey);
+                    // Store CVEs and link to port
+                    $this->storeCveRecords($portNumber, $cveRecords);
 
-                        // Store CVEs and link to port
-                        $this->storeCveRecords($portNumber, $cveRecords);
+                    $this->updated++;
+                    $this->processed++;
+                    $progressBar->advance();
 
-                        $this->updated++;
-                        $this->processed++;
-                        $progressBar->advance();
-
-                        // Note: Rate limiting is handled per-request in queryNvdApiByPort()
-                        // No additional port-level delay needed since we sleep between API requests
-                    } catch (\Exception $e) {
-                        $this->errors++;
-                        $progressBar->advance();
-                        $this->newLine();
-                        $this->error("Error processing port {$portNumber}: {$e->getMessage()}");
-                    }
+                    // Note: Rate limiting is handled per-request in queryNvdApiByPort()
+                    // No additional port-level delay needed since we sleep between API requests
+                } catch (\Exception $e) {
+                    $this->errors++;
+                    $progressBar->advance();
+                    $this->newLine();
+                    $this->error("Error processing port {$portNumber}: {$e->getMessage()}");
                 }
-            });
+            }
+        });
 
         $progressBar->finish();
         $this->newLine(2);
@@ -147,7 +144,7 @@ class UpdateCveData extends Command
     /**
      * Get base query for ports to process (returns query, not collection for memory efficiency).
      *
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\Port>
      */
     private function getPortsQuery()
     {

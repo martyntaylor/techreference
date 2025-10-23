@@ -47,33 +47,42 @@ No `<img>` tags currently exist in Blade templates. When images are added in the
 
 ---
 
-### 3. ✅ Chunk() for Bulk Operations
+### 3. ✅ Chunk() for Bulk Operations (Type-Safe)
 **Status**: Complete
 **Files**: `app/Console/Commands/UpdateCveData.php`
 
 **Changes**:
 - Refactored `getPortsToProcess()` → `getPortsQuery()` to return query builder
-- Implemented `chunk(100)` for memory-efficient iteration
-- Processes ports in batches of 100 instead of loading all into memory
-- Uses `select('port_number')` + `distinct()` to fetch only needed columns
+- Uses type-safe `pluck('port_number')` instead of `select()` + partial models
+- Processes in chunks of 100 using `Collection::chunk(100)->each()`
 - Maintains progress bar functionality
+- PHPStan Level 7 compliant with generic type annotations
 
 **Benefits**:
 - Constant memory usage regardless of port count
+- Type-safe: `Collection<int>` instead of `Collection<Model>`
 - Can process 65,535 ports without running out of memory
 - Better for large datasets (10,000+ ports)
+- No unsafe property access on partial models
 
 **Example**:
 ```php
-// Before: Load all ports into memory
-$ports = Port::whereNotNull('service_name')->get();
-foreach ($ports as $port) { ... }
+// Before: Load all ports into memory (unsafe partial models)
+$ports = Port::select('port_number')->distinct()->get();
+foreach ($ports as $port) {
+    $portNumber = $port->port_number; // PHPStan warning!
+}
 
-// After: Process in chunks of 100
-Port::whereNotNull('service_name')
-    ->chunk(100, function ($ports) {
-        foreach ($ports as $port) { ... }
-    });
+// After: Type-safe with pluck()
+$portNumbers = Port::query()
+    ->distinct('port_number')
+    ->pluck('port_number'); // Collection<int>
+
+$portNumbers->chunk(100)->each(function ($chunk) {
+    foreach ($chunk as $portNumber) { // Type-safe int
+        ...
+    }
+});
 ```
 
 ---
