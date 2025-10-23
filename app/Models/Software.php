@@ -62,7 +62,7 @@ class Software extends Model
     /**
      * Get the category this software belongs to.
      *
-     * @return BelongsTo<Category, Software>
+     * @phpstan-return BelongsTo<Category, Software>
      */
     public function category(): BelongsTo
     {
