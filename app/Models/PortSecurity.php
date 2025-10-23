@@ -30,6 +30,10 @@ class PortSecurity extends Model
         'latest_cve',
         'cve_updated_at',
         'top_countries',
+        'top_products',
+        'top_organizations',
+        'top_operating_systems',
+        'top_asns',
         'security_recommendations',
     ];
 
@@ -46,6 +50,10 @@ class PortSecurity extends Model
         'cve_count' => 'integer',
         'cve_updated_at' => 'datetime',
         'top_countries' => 'array',
+        'top_products' => 'array',
+        'top_organizations' => 'array',
+        'top_operating_systems' => 'array',
+        'top_asns' => 'array',
     ];
 
     /**

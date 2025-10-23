@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Port;
 use App\Models\PortSecurity;
+use App\Models\Software;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
@@ -169,7 +170,7 @@ class UpdateShodanData extends Command
             ->get(config('services.shodan.base_url') . '/shodan/host/count', [
                 'key' => config('services.shodan.api_key'),
                 'query' => "port:{$portNumber}",
-                'facets' => 'country:5', // Get top 5 countries
+                'facets' => 'country:10,product:10,org:10,os:10,asn:10', // Get all useful facets
             ]);
 
         if ($response->failed()) {
@@ -199,22 +200,58 @@ class UpdateShodanData extends Command
         // Extract data
         $exposedCount = $shodanData['total'] ?? 0;
         $topCountries = isset($shodanData['facets']['country'])
-            ? array_slice($shodanData['facets']['country'], 0, 5)
+            ? array_slice($shodanData['facets']['country'], 0, 10)
+            : null;
+        $topProducts = isset($shodanData['facets']['product'])
+            ? array_slice($shodanData['facets']['product'], 0, 10)
+            : null;
+        $topOrganizations = isset($shodanData['facets']['org'])
+            ? array_slice($shodanData['facets']['org'], 0, 10)
+            : null;
+        $topOperatingSystems = isset($shodanData['facets']['os'])
+            ? array_slice($shodanData['facets']['os'], 0, 10)
+            : null;
+        $topAsns = isset($shodanData['facets']['asn'])
+            ? array_slice($shodanData['facets']['asn'], 0, 10)
             : null;
 
         // Generate security recommendations based on exposure
         $securityRecommendations = $this->generateSecurityRecommendations($port, $exposedCount);
 
+        // Build update data - always update count and timestamp
+        $updateData = [
+            'shodan_exposed_count' => $exposedCount,
+            'shodan_updated_at' => now(),
+            'security_recommendations' => $securityRecommendations,
+        ];
+
+        // Only update facet data if we have it (to avoid overwriting with null in bulk mode)
+        if ($topCountries !== null) {
+            $updateData['top_countries'] = $topCountries;
+        }
+        if ($topProducts !== null) {
+            $updateData['top_products'] = $topProducts;
+        }
+        if ($topOrganizations !== null) {
+            $updateData['top_organizations'] = $topOrganizations;
+        }
+        if ($topOperatingSystems !== null) {
+            $updateData['top_operating_systems'] = $topOperatingSystems;
+        }
+        if ($topAsns !== null) {
+            $updateData['top_asns'] = $topAsns;
+        }
+
         // Update or create port_security record
         PortSecurity::updateOrCreate(
             ['port_id' => $port->id],
-            [
-                'shodan_exposed_count' => $exposedCount,
-                'shodan_updated_at' => now(),
-                'top_countries' => $topCountries,
-                'security_recommendations' => $securityRecommendations,
-            ]
+            $updateData
         );
+
+        // Create software records from product data and link to port
+        if ($topProducts) {
+            $this->createAndLinkSoftware($port, $topProducts);
+        }
     }
 
     /**
@@ -254,6 +291,114 @@ class UpdateShodanData extends Command
         }
 
         return empty($recommendations) ? null : implode("\n", $recommendations);
+    }
+
+    /**
+     * Create software records and link to port.
+     */
+    private function createAndLinkSoftware(Port $port, array $products): void
+    {
+        foreach ($products as $productData) {
+            $productName = $productData['value'] ?? null;
+            $exposureCount = $productData['count'] ?? 0;
+
+            if (! $productName || $exposureCount < 100) {
+                continue; // Skip products with very low exposure
+            }
+
+            // Determine category from product name
+            $category = $this->determineSoftwareCategory($productName, $port->port_number);
+
+            // Find or create software (using slug as unique identifier)
+            $slug = \Illuminate\Support\Str::slug($productName);
+            $software = Software::where('slug', $slug)->first();
+
+            if (! $software) {
+                $software = Software::create([
+                    'name' => $productName,
+                    'slug' => $slug,
+                    'category' => $category,
+                    'is_active' => true,
+                ]);
+            }
+
+            // Link software to port if not already linked
+            if (! $port->software()->where('software_id', $software->id)->exists()) {
+                $port->software()->attach($software->id, [
+                    'is_default' => false,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Determine software category from product name and port.
+     */
+    private function determineSoftwareCategory(string $productName, int $portNumber): string
+    {
+        $productLower = strtolower($productName);
+
+        // Web servers
+        if (in_array($portNumber, [80, 443, 8080, 8443, 8888]) ||
+            str_contains($productLower, 'nginx') ||
+            str_contains($productLower, 'apache') ||
+            str_contains($productLower, 'iis') ||
+            str_contains($productLower, 'httpd')) {
+            return 'Web Server';
+        }
+
+        // Databases
+        if (in_array($portNumber, [3306, 5432, 1433, 27017, 6379, 5984, 9200]) ||
+            str_contains($productLower, 'mysql') ||
+            str_contains($productLower, 'postgres') ||
+            str_contains($productLower, 'mariadb') ||
+            str_contains($productLower, 'mongodb') ||
+            str_contains($productLower, 'redis') ||
+            str_contains($productLower, 'elasticsearch')) {
+            return 'Database';
+        }
+
+        // SSH/Remote Access
+        if (in_array($portNumber, [22, 3389, 5900]) ||
+            str_contains($productLower, 'ssh') ||
+            str_contains($productLower, 'openssh') ||
+            str_contains($productLower, 'dropbear')) {
+            return 'Remote Access';
+        }
+
+        // FTP
+        if (in_array($portNumber, [21, 20, 990]) ||
+            str_contains($productLower, 'ftp') ||
+            str_contains($productLower, 'vsftpd') ||
+            str_contains($productLower, 'proftpd')) {
+            return 'File Transfer';
+        }
+
+        // Email
+        if (in_array($portNumber, [25, 587, 465, 110, 995, 143, 993]) ||
+            str_contains($productLower, 'smtp') ||
+            str_contains($productLower, 'postfix') ||
+            str_contains($productLower, 'exim') ||
+            str_contains($productLower, 'dovecot')) {
+            return 'Email';
+        }
+
+        // DNS
+        if ($portNumber == 53 || str_contains($productLower, 'bind') || str_contains($productLower, 'dns')) {
+            return 'DNS';
+        }
+
+        // CDN/Load Balancer
+        if (str_contains($productLower, 'cloudflare') ||
+            str_contains($productLower, 'akamai') ||
+            str_contains($productLower, 'cloudfront') ||
+            str_contains($productLower, 'elb')) {
+            return 'CDN/Load Balancer';
+        }
+
+        return 'Other';
     }
 
     /**
