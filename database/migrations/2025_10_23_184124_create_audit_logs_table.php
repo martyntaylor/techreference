@@ -19,13 +19,10 @@ return new class extends Migration
             // Polymorphic target; both nullable for non-model events (e.g., login_failed)
             $table->nullableMorphs('auditable');
 
-            // Store structured data as JSON (PostgreSQL uses jsonb, others use json)
-            $connection = Schema::getConnection();
-            $driver = $connection->getDriverName();
-
-            if ($driver === 'pgsql') {
-                $connection->statement('ALTER TABLE audit_logs ADD COLUMN old_values jsonb NULL');
-                $connection->statement('ALTER TABLE audit_logs ADD COLUMN new_values jsonb NULL');
+            // Store structured data as JSON; prefer jsonb on Postgres
+            if (Schema::getConnection()->getDriverName() === 'pgsql') {
+                $table->jsonb('old_values')->nullable();
+                $table->jsonb('new_values')->nullable();
             } else {
                 $table->json('old_values')->nullable();
                 $table->json('new_values')->nullable();
