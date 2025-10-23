@@ -209,6 +209,9 @@ class UpdateCveData extends Command
             "port {$portNumber}/tcp",
             "UDP port {$portNumber}",
             "port {$portNumber}/udp",
+            "port {$portNumber}",  // Generic pattern
+            "listening on port {$portNumber}",
+            "default port {$portNumber}",
         ];
 
         $totalPatterns = count($searchPatterns);
