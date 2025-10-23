@@ -178,19 +178,17 @@ class UpdateCveData extends Command
      */
     private function fetchCveDataForPort(int $portNumber, string $cacheKey): array
     {
-        // Return cached data if available (with default empty array to ensure never null)
-        $cachedData = Cache::get($cacheKey, []);
-        if (!empty($cachedData)) {
-            return $cachedData;
+        // Return cached data if available (including empty arrays)
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey, []);
         }
 
         // Query NVD API for port-specific CVEs
         $cveRecords = $this->queryNvdApiByPort($portNumber);
 
-        // Cache result (24 hours) - only cache if we have data
-        if (!empty($cveRecords)) {
-            Cache::put($cacheKey, $cveRecords, 86400);
-        }
+        // Cache result: 24 hours if we have data, 1 hour for empty (to avoid repeated API calls)
+        $cacheDuration = !empty($cveRecords) ? 86400 : 3600;
+        Cache::put($cacheKey, $cveRecords, $cacheDuration);
 
         return $cveRecords;
     }
