@@ -34,7 +34,6 @@ return new class extends Migration
 
             // Indexes for performance
             $table->index(['user_id', 'created_at']);
-            // Note: nullableMorphs() already creates an index on auditable_type and auditable_id
             $table->index('action');
             $table->index('created_at');
         });
