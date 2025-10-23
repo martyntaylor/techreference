@@ -93,25 +93,33 @@ class CategoryController extends Controller
 
             // CVE severity filter
             if ($cveSeverity) {
-                $query->whereHas('security', function ($q) use ($cveSeverity) {
-                    switch ($cveSeverity) {
-                        case 'critical':
-                            $q->where('cve_critical_count', '>', 0);
-                            break;
-                        case 'high':
-                            $q->where('cve_high_count', '>', 0);
-                            break;
-                        case 'medium':
-                            $q->where('cve_medium_count', '>', 0);
-                            break;
-                        case 'low':
-                            $q->where('cve_low_count', '>', 0);
-                            break;
-                        case 'none':
-                            $q->where('cve_count', 0);
-                            break;
-                    }
-                });
+                if ($cveSeverity === 'none') {
+                    // Special handling for 'none': include both ports with cve_count=0
+                    // AND ports without any security record at all
+                    $query->where(function ($q) {
+                        $q->whereHas('security', function ($securityQuery) {
+                            $securityQuery->where('cve_count', 0);
+                        })->orWhereDoesntHave('security');
+                    });
+                } else {
+                    // For critical/high/medium/low, require security record with count > 0
+                    $query->whereHas('security', function ($q) use ($cveSeverity) {
+                        switch ($cveSeverity) {
+                            case 'critical':
+                                $q->where('cve_critical_count', '>', 0);
+                                break;
+                            case 'high':
+                                $q->where('cve_high_count', '>', 0);
+                                break;
+                            case 'medium':
+                                $q->where('cve_medium_count', '>', 0);
+                                break;
+                            case 'low':
+                                $q->where('cve_low_count', '>', 0);
+                                break;
+                        }
+                    });
+                }
             }
 
             // Minimum exposures filter
