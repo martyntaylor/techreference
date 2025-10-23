@@ -171,6 +171,8 @@ class CategoryController extends Controller
                     SUM(port_security.cve_count) as total_cves,
                     SUM(port_security.cve_critical_count) as total_critical_cves,
                     SUM(port_security.cve_high_count) as total_high_cves,
+                    SUM(port_security.cve_medium_count) as total_medium_cves,
+                    SUM(port_security.cve_low_count) as total_low_cves,
                     AVG(port_security.cve_avg_score) as avg_cvss_score,
                     MAX(port_security.shodan_exposed_count) as max_exposures,
                     MAX(port_security.cve_count) as max_cves
@@ -196,11 +198,15 @@ class CategoryController extends Controller
                 ->first();
 
             return [
-                'total_exposures' => $securityStats->total_exposures ?? 0,
-                'total_cves' => $securityStats->total_cves ?? 0,
-                'total_critical_cves' => $securityStats->total_critical_cves ?? 0,
-                'total_high_cves' => $securityStats->total_high_cves ?? 0,
-                'avg_cvss_score' => $securityStats->avg_cvss_score ? round($securityStats->avg_cvss_score, 1) : null,
+                'total_exposures' => $securityStats?->total_exposures ?? 0,
+                'total_cves' => $securityStats?->total_cves ?? 0,
+                'total_critical_cves' => $securityStats?->total_critical_cves ?? 0,
+                'total_high_cves' => $securityStats?->total_high_cves ?? 0,
+                'total_medium_cves' => $securityStats?->total_medium_cves ?? 0,
+                'total_low_cves' => $securityStats?->total_low_cves ?? 0,
+                'avg_cvss_score' => isset($securityStats?->avg_cvss_score)
+                    ? round((float) $securityStats->avg_cvss_score, 1)
+                    : null,
                 'most_exposed_port' => $mostExposedPort,
                 'most_vulnerable_port' => $mostVulnerablePort,
             ];
