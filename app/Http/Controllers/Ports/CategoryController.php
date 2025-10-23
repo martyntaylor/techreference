@@ -8,6 +8,7 @@ use App\Models\Port;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class CategoryController extends Controller
@@ -97,17 +98,17 @@ class CategoryController extends Controller
                     break;
                 case 'exposures':
                     $query->leftJoin('port_security', 'ports.port_number', '=', 'port_security.port_number')
-                        ->orderBy('port_security.shodan_exposed_count', 'desc')
+                        ->orderByRaw('port_security.shodan_exposed_count DESC NULLS LAST')
                         ->select('ports.*');
                     break;
                 case 'cves':
                     $query->leftJoin('port_security', 'ports.port_number', '=', 'port_security.port_number')
-                        ->orderBy('port_security.cve_count', 'desc')
+                        ->orderByRaw('port_security.cve_count DESC NULLS LAST')
                         ->select('ports.*');
                     break;
                 case 'cvss':
                     $query->leftJoin('port_security', 'ports.port_number', '=', 'port_security.port_number')
-                        ->orderBy('port_security.cve_avg_score', 'desc')
+                        ->orderByRaw('port_security.cve_avg_score DESC NULLS LAST')
                         ->select('ports.*');
                     break;
                 case 'popular':
@@ -162,7 +163,7 @@ class CategoryController extends Controller
         $categoryStats = Cache::tags(['category', "category:{$categoryId}"])->remember("category:{$category->slug}:stats", 3600, function () use ($categoryId) {
             // Get security statistics from ports in this category
             // Use DB query builder to avoid BelongsToMany pivot column issues
-            $securityStats = \DB::table('ports')
+            $securityStats = DB::table('ports')
                 ->join('port_categories', 'ports.id', '=', 'port_categories.port_id')
                 ->join('port_security', 'ports.port_number', '=', 'port_security.port_number')
                 ->where('port_categories.category_id', $categoryId)
@@ -180,7 +181,7 @@ class CategoryController extends Controller
                 ->first();
 
             // Get port with most exposures
-            $mostExposedPort = \DB::table('ports')
+            $mostExposedPort = DB::table('ports')
                 ->join('port_categories', 'ports.id', '=', 'port_categories.port_id')
                 ->join('port_security', 'ports.port_number', '=', 'port_security.port_number')
                 ->where('port_categories.category_id', $categoryId)
@@ -189,7 +190,7 @@ class CategoryController extends Controller
                 ->first();
 
             // Get port with most CVEs
-            $mostVulnerablePort = \DB::table('ports')
+            $mostVulnerablePort = DB::table('ports')
                 ->join('port_categories', 'ports.id', '=', 'port_categories.port_id')
                 ->join('port_security', 'ports.port_number', '=', 'port_security.port_number')
                 ->where('port_categories.category_id', $categoryId)
