@@ -421,6 +421,7 @@ class UpdateShodanData extends Command
             'iana_official' => false,
             'encrypted_default' => false,
             'risk_level' => $this->determineRiskLevelFromExposure($shodanData['total'] ?? 0),
+            'data_source' => 'Shodan',
         ]);
 
         return $port;

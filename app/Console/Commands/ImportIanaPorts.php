@@ -254,6 +254,7 @@ class ImportIanaPorts extends Command
             'iana_official' => $this->isOfficialPort($data),
             'encrypted_default' => $this->isEncryptedByDefault($data),
             'risk_level' => $this->determineRiskLevel($data),
+            'data_source' => 'IANA',
         ];
 
         // Set iana_updated_at if modification date is available
