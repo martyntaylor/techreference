@@ -2,11 +2,13 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Cve;
 use App\Models\Port;
 use App\Models\PortSecurity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 class UpdateCveData extends Command
@@ -65,42 +67,33 @@ class UpdateCveData extends Command
             return self::SUCCESS;
         }
 
-        $this->info("Processing {$ports->count()} ports...");
-        $progressBar = $this->output->createProgressBar($ports->count());
+        // Group ports by port_number to avoid processing duplicates
+        $uniquePortNumbers = $ports->pluck('port_number')->unique()->sort()->values();
+
+        $this->info("Processing {$uniquePortNumbers->count()} unique port numbers...");
+        $progressBar = $this->output->createProgressBar($uniquePortNumbers->count());
         $progressBar->start();
 
-        // Group ports by service name to minimize API calls
-        $serviceGroups = $this->groupPortsByService($ports);
-        $this->info("\nGrouped into {$serviceGroups->count()} unique services");
-        $this->newLine();
-
-        foreach ($serviceGroups as $serviceName => $servicePorts) {
+        foreach ($uniquePortNumbers as $portNumber) {
             try {
-                // Check if cached to avoid unnecessary rate limiting
-                $cacheKey = 'cve:service:'.md5($serviceName);
-                $isCached = Cache::has($cacheKey);
+                // Fetch CVE data for this port number (with caching)
+                $cacheKey = 'cve:port:' . $portNumber;
+                $cveRecords = $this->fetchCveDataForPort($portNumber, $cacheKey);
 
-                // Fetch CVE data for this service (with caching)
-                $cveData = $this->fetchCveDataForService($serviceName, $cacheKey);
+                // Store CVEs and link to port
+                $this->storeCveRecords($portNumber, $cveRecords);
 
-                // Update all ports using this service
-                foreach ($servicePorts as $port) {
-                    $this->updatePortSecurity($port, $cveData);
-                    $this->updated++;
-                    $progressBar->advance();
-                }
+                $this->updated++;
+                $this->processed++;
+                $progressBar->advance();
 
-                $this->processed += $servicePorts->count();
-
-                // Rate limiting: Only sleep after actual API calls, not cached data
-                if (! $isCached) {
-                    sleep($this->requestDelay);
-                }
+                // Note: Rate limiting is handled per-request in queryNvdApiByPort()
+                // No additional port-level delay needed since we sleep between API requests
             } catch (\Exception $e) {
-                $this->errors += $servicePorts->count();
-                $progressBar->advance($servicePorts->count());
+                $this->errors++;
+                $progressBar->advance();
                 $this->newLine();
-                $this->error("Error processing service '{$serviceName}': {$e->getMessage()}");
+                $this->error("Error processing port {$portNumber}: {$e->getMessage()}");
             }
         }
 
@@ -179,321 +172,288 @@ class UpdateCveData extends Command
     }
 
     /**
-     * Group ports by service name to minimize API calls.
+     * Fetch CVE data for a specific port number from NVD API (with caching).
      *
-     * @param  Collection<int, Port>  $ports
-     * @return Collection<string, Collection<int, Port>>
+     * @return array<int, array{cve_id: string, description: string, published_date: string, last_modified_date: string|null, cvss_score: float|null, severity: string|null, weakness_types: array<int, string>, references: array<int, string>}>
      */
-    private function groupPortsByService(Collection $ports): Collection
+    private function fetchCveDataForPort(int $portNumber, string $cacheKey): array
     {
-        return $ports->groupBy(function (Port $port) {
-            // Normalize service name for grouping
-            return strtolower(trim($port->service_name));
-        });
-    }
-
-    /**
-     * Fetch CVE data for a service from NVD API (with caching).
-     *
-     * @return array{count: int, latest_cve: string|null, latest_date: string|null, critical_count: int, high_count: int, medium_count: int, low_count: int, avg_score: float|null, critical_recent: array<int, array{id: string, published: string, cvss: float, severity: string, description: string}>, weakness_types: array<string, int>}
-     */
-    private function fetchCveDataForService(string $serviceName, string $cacheKey): array
-    {
-        // Return cached data if available
+        // Return cached data if available (including empty arrays)
         if (Cache::has($cacheKey)) {
-            return Cache::get($cacheKey);
+            return Cache::get($cacheKey, []);
         }
 
-        // Query API and cache result (1 hour TTL)
-        $data = $this->queryNvdApi($serviceName);
-        Cache::put($cacheKey, $data, 3600);
+        // Query NVD API for port-specific CVEs
+        $cveRecords = $this->queryNvdApiByPort($portNumber);
 
-        return $data;
+        // Cache result: 24 hours if we have data, 1 hour for empty (to avoid repeated API calls)
+        $cacheDuration = !empty($cveRecords) ? 86400 : 3600;
+        Cache::put($cacheKey, $cveRecords, $cacheDuration);
+
+        return $cveRecords;
     }
 
     /**
-     * Query NVD API for CVE data with pagination support.
+     * Query NVD API for CVEs mentioning a specific port number.
      *
-     * @return array{count: int, latest_cve: string|null, latest_date: string|null, critical_count: int, high_count: int, medium_count: int, low_count: int, avg_score: float|null, critical_recent: array<int, array{id: string, published: string, cvss: float, severity: string, description: string}>, weakness_types: array<string, int>}
+     * @return array<int, array{cve_id: string, description: string, published_date: string, last_modified_date: string|null, cvss_score: float|null, severity: string|null, weakness_types: array<int, string>, references: array<int, string>}>
      */
-    private function queryNvdApi(string $serviceName): array
+    private function queryNvdApiByPort(int $portNumber): array
     {
         $url = $this->nvdEndpoint;
-        $resultsPerPage = 2000; // NVD API max per page
-        $startIndex = 0;
-        $accumulated = ['totalResults' => 0, 'vulnerabilities' => []];
+        $cveRecords = []; // Initialize as empty array to ensure we always return an array
 
-        do {
-            // Build request for each page
-            $request = Http::timeout(30)
-                ->retry(3, 1000); // Retry 3 times with 1s delay
+        // Try multiple search patterns for better coverage
+        $searchPatterns = [
+            "TCP port {$portNumber}",
+            "port {$portNumber}/tcp",
+            "UDP port {$portNumber}",
+            "port {$portNumber}/udp",
+            "port {$portNumber}",  // Generic pattern
+            "listening on port {$portNumber}",
+            "default port {$portNumber}",
+        ];
 
-            // Add API key and headers if available
-            if (! empty($this->nvdApiKey)) {
-                $request->withHeaders([
-                    'apiKey' => $this->nvdApiKey,
-                    'User-Agent' => 'techreference/ports-update-cve',
-                    'Accept' => 'application/json',
-                ]);
-            } else {
-                $request->withHeaders([
-                    'User-Agent' => 'techreference/ports-update-cve',
-                    'Accept' => 'application/json',
-                ]);
-            }
+        $totalPatterns = count($searchPatterns);
+        foreach ($searchPatterns as $i => $pattern) {
+            try {
+                $startIndex = 0;
+                $resultsPerPage = 100;
+                $patternCompleted = false;
 
-            // Query parameters with pagination
-            $params = [
-                'keywordSearch' => $serviceName,
-                'resultsPerPage' => $resultsPerPage,
-                'startIndex' => $startIndex,
-            ];
+                // Paginate through all results for this pattern
+                while (!$patternCompleted) {
+                    $request = Http::timeout(30)->retry(3, 1000);
 
-            $response = $request->get($url, $params);
+                    // Add API key if available
+                    if (!empty($this->nvdApiKey)) {
+                        $request->withHeaders(['apiKey' => $this->nvdApiKey]);
+                    }
 
-            if (! $response->successful()) {
-                throw new \Exception("NVD API request failed: {$response->status()}");
-            }
-
-            $page = $response->json() ?? ['totalResults' => 0, 'vulnerabilities' => []];
-
-            // Update total results count
-            $accumulated['totalResults'] = max($accumulated['totalResults'], (int) ($page['totalResults'] ?? 0));
-
-            // Merge vulnerabilities from this page
-            $pageVulnerabilities = $page['vulnerabilities'] ?? [];
-            if (! empty($pageVulnerabilities)) {
-                $accumulated['vulnerabilities'] = array_merge($accumulated['vulnerabilities'], $pageVulnerabilities);
-            }
-
-            $startIndex += $resultsPerPage;
-
-            // Respect rate limits between pages (except for last iteration)
-            if ($startIndex < $accumulated['totalResults']) {
-                sleep($this->requestDelay);
-            }
-        } while ($startIndex < $accumulated['totalResults']);
-
-        return $this->parseCveResponse($accumulated);
-    }
-
-    /**
-     * Parse NVD API response and extract relevant CVE data.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array{count: int, latest_cve: string|null, latest_date: string|null, critical_count: int, high_count: int, medium_count: int, low_count: int, avg_score: float|null, critical_recent: array<int, array{id: string, published: string, cvss: float, severity: string, description: string}>, weakness_types: array<string, int>}
-     */
-    private function parseCveResponse(array $data): array
-    {
-        $totalResults = $data['totalResults'] ?? 0;
-        $vulnerabilities = $data['vulnerabilities'] ?? [];
-
-        if ($totalResults === 0 || empty($vulnerabilities)) {
-            return [
-                'count' => 0,
-                'latest_cve' => null,
-                'latest_date' => null,
-                'critical_count' => 0,
-                'high_count' => 0,
-                'medium_count' => 0,
-                'low_count' => 0,
-                'avg_score' => null,
-                'critical_recent' => [],
-                'weakness_types' => [],
-            ];
-        }
-
-        $validCves = [];
-        $severityCounts = ['CRITICAL' => 0, 'HIGH' => 0, 'MEDIUM' => 0, 'LOW' => 0];
-        $cvssScores = [];
-        $weaknessTypes = [];
-        $criticalRecent = [];
-
-        foreach ($vulnerabilities as $vuln) {
-            $cve = $vuln['cve'] ?? null;
-            if (! $cve) {
-                continue;
-            }
-
-            $cveId = $cve['id'] ?? null;
-            $published = $cve['published'] ?? null;
-
-            // Skip rejected/disputed CVEs
-            $descriptions = $cve['descriptions'] ?? [];
-            $isRejectedOrDisputed = false;
-            $description = '';
-            foreach ($descriptions as $desc) {
-                if (isset($desc['lang']) && $desc['lang'] === 'en') {
-                    $description = $desc['value'] ?? '';
-                }
-                $descUpper = strtoupper($desc['value'] ?? '');
-                if (str_contains($descUpper, 'REJECT') || str_contains($descUpper, 'DISPUTED')) {
-                    $isRejectedOrDisputed = true;
-                    break;
-                }
-            }
-
-            if ($isRejectedOrDisputed || ! $cveId || ! $published) {
-                continue;
-            }
-
-            // Extract CVSS score and severity
-            $cvssData = $this->extractCvssData($cve);
-            $cvssScore = $cvssData['score'];
-            $severity = $cvssData['severity'];
-
-            // Only count CVEs with valid CVSS scores
-            if ($cvssScore > 0) {
-                $validCves[] = [
-                    'id' => $cveId,
-                    'published' => $published,
-                    'cvss' => $cvssScore,
-                    'severity' => $severity,
-                    'description' => $description,
-                ];
-
-                $cvssScores[] = $cvssScore;
-
-                // Count by severity
-                if (isset($severityCounts[$severity])) {
-                    $severityCounts[$severity]++;
-                } else {
-                    // Unknown severity - log it for debugging
-                    $this->warn("Unknown severity '{$severity}' for {$cveId}");
-                }
-
-                // Track critical/high CVEs for detailed storage
-                if (in_array($severity, ['CRITICAL', 'HIGH']) && count($criticalRecent) < 10) {
-                    $criticalRecent[] = [
-                        'id' => $cveId,
-                        'published' => $published,
-                        'cvss' => $cvssScore,
-                        'severity' => $severity,
-                        'description' => mb_substr($description, 0, 200), // Truncate for storage
+                    $params = [
+                        'keywordSearch' => $pattern,
+                        'resultsPerPage' => $resultsPerPage,
+                        'startIndex' => $startIndex,
                     ];
-                }
 
-                // Extract weakness types (CWE)
-                $weaknesses = $cve['weaknesses'] ?? [];
-                foreach ($weaknesses as $weakness) {
-                    $weaknessDescs = $weakness['description'] ?? [];
-                    foreach ($weaknessDescs as $weaknessDesc) {
-                        if (isset($weaknessDesc['value'])) {
-                            $cweValue = $weaknessDesc['value'];
-                            if (! isset($weaknessTypes[$cweValue])) {
-                                $weaknessTypes[$cweValue] = 0;
-                            }
-                            $weaknessTypes[$cweValue]++;
+                    $response = $request->get($url, $params);
+
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        $totalResults = $data['totalResults'] ?? 0;
+                        $vulnerabilities = $data['vulnerabilities'] ?? [];
+
+                        // Log pagination info on first page
+                        if ($startIndex === 0 && $totalResults > $resultsPerPage) {
+                            $this->warn("Port {$portNumber} pattern '{$pattern}' has {$totalResults} results, paginating...");
                         }
+
+                        foreach ($vulnerabilities as $vuln) {
+                            $cve = $vuln['cve'] ?? null;
+                            if (!$cve) {
+                                continue;
+                            }
+
+                            $cveId = $cve['id'] ?? null;
+                            if (!$cveId) {
+                                continue;
+                            }
+
+                            // Skip if we already have this CVE
+                            if (isset($cveRecords[$cveId])) {
+                                continue;
+                            }
+
+                            // Skip rejected/disputed CVEs
+                            $descriptions = $cve['descriptions'] ?? [];
+                            $isRejectedOrDisputed = false;
+                            foreach ($descriptions as $desc) {
+                                $descUpper = strtoupper($desc['value'] ?? '');
+                                if (str_contains($descUpper, 'REJECT') || str_contains($descUpper, 'DISPUTED')) {
+                                    $isRejectedOrDisputed = true;
+                                    break;
+                                }
+                            }
+
+                            if ($isRejectedOrDisputed) {
+                                continue;
+                            }
+
+                            // Extract CVSS score and severity
+                            $cvssScore = null;
+                            $severity = null;
+                            if (isset($cve['metrics']['cvssMetricV31'][0])) {
+                                $cvssScore = $cve['metrics']['cvssMetricV31'][0]['cvssData']['baseScore'] ?? null;
+                                $severity = $cve['metrics']['cvssMetricV31'][0]['cvssData']['baseSeverity'] ?? null;
+                            } elseif (isset($cve['metrics']['cvssMetricV30'][0])) {
+                                $cvssScore = $cve['metrics']['cvssMetricV30'][0]['cvssData']['baseScore'] ?? null;
+                                $severity = $cve['metrics']['cvssMetricV30'][0]['cvssData']['baseSeverity'] ?? null;
+                            } elseif (isset($cve['metrics']['cvssMetricV2'][0])) {
+                                $cvssScore = $cve['metrics']['cvssMetricV2'][0]['cvssData']['baseScore'] ?? null;
+                                $severity = $cve['metrics']['cvssMetricV2'][0]['baseSeverity'] ?? null;
+                            }
+
+                            // Extract weakness types (CWE)
+                            $weaknessTypes = [];
+                            foreach ($cve['weaknesses'] ?? [] as $weakness) {
+                                foreach ($weakness['description'] ?? [] as $desc) {
+                                    if (isset($desc['value']) && str_starts_with($desc['value'], 'CWE-')) {
+                                        $weaknessTypes[] = $desc['value'];
+                                    }
+                                }
+                            }
+
+                            // Extract references
+                            $references = [];
+                            foreach ($cve['references'] ?? [] as $ref) {
+                                if (isset($ref['url'])) {
+                                    $references[] = $ref['url'];
+                                }
+                            }
+
+                            $cveRecords[$cveId] = [
+                                'cve_id' => $cveId,
+                                'description' => isset($cve['descriptions'][0]['value']) ? $cve['descriptions'][0]['value'] : '',
+                                'published_date' => $cve['published'] ?? null,
+                                'last_modified_date' => $cve['lastModified'] ?? null,
+                                'cvss_score' => $cvssScore,
+                                'severity' => $severity,
+                                'weakness_types' => $weaknessTypes,
+                                'references' => array_slice($references, 0, 10), // Limit to 10 refs
+                            ];
+                        }
+
+                        // Check if we need to fetch more results
+                        $startIndex += $resultsPerPage;
+                        if ($startIndex >= $totalResults || empty($vulnerabilities)) {
+                            $patternCompleted = true;
+                        } else {
+                            // Rate limiting between pagination requests
+                            sleep($this->requestDelay);
+                        }
+                    } else {
+                        // API request failed, stop pagination for this pattern
+                        $patternCompleted = true;
                     }
                 }
+
+                // Rate limiting between search patterns (respect configured delay, skip after last pattern)
+                if ($i < $totalPatterns - 1) {
+                    sleep($this->requestDelay);
+                }
+            } catch (\Exception $e) {
+                // Log error but continue with other patterns
+                $this->warn("Error querying pattern '{$pattern}' for port {$portNumber}: {$e->getMessage()}");
+                continue;
             }
         }
 
-        // Sort by published date (newest first)
-        usort($validCves, function ($a, $b) {
-            return strcmp($b['published'], $a['published']);
+        // Sort by published date (most recent first)
+        usort($cveRecords, function ($a, $b) {
+            return strcmp($b['published_date'] ?? '', $a['published_date'] ?? '');
         });
 
-        // Calculate average CVSS score
-        $avgScore = ! empty($cvssScores) ? round(array_sum($cvssScores) / count($cvssScores), 1) : null;
-
-        // Get top 10 weakness types
-        arsort($weaknessTypes);
-        $topWeaknesses = array_slice($weaknessTypes, 0, 10, true);
-
-        return [
-            'count' => count($validCves),
-            'latest_cve' => $validCves[0]['id'] ?? null,
-            'latest_date' => $validCves[0]['published'] ?? null,
-            'critical_count' => $severityCounts['CRITICAL'],
-            'high_count' => $severityCounts['HIGH'],
-            'medium_count' => $severityCounts['MEDIUM'],
-            'low_count' => $severityCounts['LOW'],
-            'avg_score' => $avgScore,
-            'critical_recent' => $criticalRecent,
-            'weakness_types' => $topWeaknesses,
-        ];
+        return $cveRecords;
     }
 
     /**
-     * Extract CVSS score and severity from CVE metrics.
+     * Store CVE records and link them to the port.
      *
-     * @param  array<string, mixed>  $cve
-     * @return array{score: float, severity: string}
+     * @param  array<int, array{cve_id: string, description: string, published_date: string, last_modified_date: string|null, cvss_score: float|null, severity: string|null, weakness_types: array<int, string>, references: array<int, string>}>  $cveRecords
      */
-    private function extractCvssData(array $cve): array
+    private function storeCveRecords(int $portNumber, array $cveRecords): void
     {
-        $metrics = $cve['metrics'] ?? [];
-
-        // Try CVSS v3.1
-        if (isset($metrics['cvssMetricV31'][0]['cvssData']['baseScore'])) {
-            return [
-                'score' => (float) $metrics['cvssMetricV31'][0]['cvssData']['baseScore'],
-                'severity' => $metrics['cvssMetricV31'][0]['cvssData']['baseSeverity'] ?? 'UNKNOWN',
-            ];
+        if (empty($cveRecords)) {
+            return;
         }
 
-        // Try CVSS v3.0
-        if (isset($metrics['cvssMetricV30'][0]['cvssData']['baseScore'])) {
-            return [
-                'score' => (float) $metrics['cvssMetricV30'][0]['cvssData']['baseScore'],
-                'severity' => $metrics['cvssMetricV30'][0]['cvssData']['baseSeverity'] ?? 'UNKNOWN',
-            ];
-        }
+        DB::transaction(function () use ($portNumber, $cveRecords) {
+            $criticalCount = 0;
+            $highCount = 0;
+            $mediumCount = 0;
+            $lowCount = 0;
+            $scores = [];
+            $latestCve = null;
 
-        // Try CVSS v2.0
-        if (isset($metrics['cvssMetricV2'][0]['cvssData']['baseScore'])) {
-            $score = (float) $metrics['cvssMetricV2'][0]['cvssData']['baseScore'];
-            // Use baseSeverity if available, otherwise map based on score
-            $severity = $metrics['cvssMetricV2'][0]['baseSeverity'] ?? $this->mapCvssV2Severity($score);
+            foreach ($cveRecords as $cveData) {
+                // Create or update CVE record
+                $cve = Cve::updateOrCreate(
+                    ['cve_id' => $cveData['cve_id']],
+                    [
+                        'description' => $cveData['description'],
+                        'published_date' => $cveData['published_date'],
+                        'last_modified_date' => $cveData['last_modified_date'] ?? null,
+                        'cvss_score' => $cveData['cvss_score'],
+                        'severity' => $cveData['severity'],
+                        'weakness_types' => $cveData['weakness_types'],
+                        'references' => $cveData['references'],
+                        'source' => 'NVD',
+                    ]
+                );
 
-            return [
-                'score' => $score,
-                'severity' => strtoupper($severity),
-            ];
-        }
+                // Link CVE to port (using port_number, not port ID)
+                DB::table('cve_port')->updateOrInsert(
+                    [
+                        'cve_id' => $cve->cve_id,
+                        'port_number' => $portNumber,
+                    ],
+                    [
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
 
-        return ['score' => 0.0, 'severity' => 'UNKNOWN'];
-    }
+                // Track counts for summary
+                if (!$latestCve) {
+                    $latestCve = $cveData['cve_id'];
+                }
 
-    /**
-     * Map CVSS v2.0 score to severity level.
-     */
-    private function mapCvssV2Severity(float $score): string
-    {
-        if ($score >= 7.0) {
-            return 'HIGH';
-        }
-        if ($score >= 4.0) {
-            return 'MEDIUM';
-        }
+                if ($cveData['cvss_score']) {
+                    $scores[] = $cveData['cvss_score'];
+                }
 
-        return 'LOW';
-    }
+                switch (strtoupper($cveData['severity'] ?? '')) {
+                    case 'CRITICAL':
+                        $criticalCount++;
+                        break;
+                    case 'HIGH':
+                        $highCount++;
+                        break;
+                    case 'MEDIUM':
+                        $mediumCount++;
+                        break;
+                    case 'LOW':
+                        $lowCount++;
+                        break;
+                }
+            }
 
-    /**
-     * Update port_security table with CVE data.
-     *
-     * @param  array{count: int, latest_cve: string|null, latest_date: string|null, critical_count: int, high_count: int, medium_count: int, low_count: int, avg_score: float|null, critical_recent: array<int, array{id: string, published: string, cvss: float, severity: string, description: string}>, weakness_types: array<string, int>}  $cveData
-     */
-    private function updatePortSecurity(Port $port, array $cveData): void
-    {
-        PortSecurity::updateOrCreate(
-            ['port_id' => $port->id],
-            [
-                'cve_count' => $cveData['count'],
-                'cve_critical_count' => $cveData['critical_count'],
-                'cve_high_count' => $cveData['high_count'],
-                'cve_medium_count' => $cveData['medium_count'],
-                'cve_low_count' => $cveData['low_count'],
-                'cve_avg_score' => $cveData['avg_score'],
-                'latest_cve' => $cveData['latest_cve'],
-                'cve_critical_recent' => ! empty($cveData['critical_recent']) ? $cveData['critical_recent'] : null,
-                'cve_weakness_types' => ! empty($cveData['weakness_types']) ? $cveData['weakness_types'] : null,
-                'cve_updated_at' => now(),
-            ]
-        );
+            // Update port_security summary
+            PortSecurity::updateOrCreate(
+                ['port_number' => $portNumber],
+                [
+                    'cve_count' => count($cveRecords),
+                    'cve_critical_count' => $criticalCount,
+                    'cve_high_count' => $highCount,
+                    'cve_medium_count' => $mediumCount,
+                    'cve_low_count' => $lowCount,
+                    'cve_avg_score' => !empty($scores) ? round(array_sum($scores) / count($scores), 1) : null,
+                    'latest_cve' => $latestCve,
+                    'cve_updated_at' => now(),
+                ]
+            );
+
+            // Invalidate port page caches
+            Cache::forget("port:{$portNumber}:vulnerabilities:v1");
+
+            // Invalidate all category caches that contain CVE data (using cache tags)
+            Cache::tags(['category'])->flush();
+
+            // Invalidate home page caches (CVE updates affect security statistics)
+            Cache::forget('ports:home:categories');
+            Cache::forget('ports:home:top-ports');
+            Cache::forget('ports:home:popular');
+        });
     }
 
     /**

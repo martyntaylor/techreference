@@ -30,6 +30,10 @@ class PortController extends Controller
                     ->orderBy('name');
             },
             'security',
+            'cves' => function ($query) {
+                $query->orderBy('published_date', 'desc')
+                    ->limit(20); // Load top 20 most recent CVEs
+            },
             'configs' => function ($query) {
                 $query->where('verified', true)
                     ->orderBy('platform');
@@ -69,6 +73,40 @@ class PortController extends Controller
                 $primaryPort->port_number,
                 $primaryPort->service_name ? ' - ' . $primaryPort->service_name : ''
             ),
+        ]);
+    }
+
+    /**
+     * Display all vulnerabilities for a specific port.
+     */
+    public function vulnerabilities(int $port): View
+    {
+        $cacheKey = "port:{$port}:vulnerabilities:v1";
+
+        [$ports, $primaryPort] = Cache::remember($cacheKey, 3600, function () use ($port) {
+            $ports = Port::where('port_number', $port)
+                ->with(['categories', 'security'])
+                ->get();
+
+            if ($ports->isEmpty()) {
+                return [collect(), null];
+            }
+
+            $primary = $ports->first();
+            $primary->load([
+                'cves' => fn ($q) => $q->orderBy('published_date', 'desc'),
+            ]);
+
+            return [$ports, $primary];
+        });
+
+        if ($ports->isEmpty() || !$primaryPort) {
+            abort(404, "Port {$port} not found");
+        }
+
+        return view('ports.vulnerabilities', [
+            'port' => $primaryPort,
+            'ports' => $ports,
         ]);
     }
 

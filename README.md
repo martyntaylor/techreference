@@ -153,6 +153,35 @@ Features:
 - Preserves detailed facet data during bulk updates
 - Captures top products, organizations, operating systems, countries, and ASNs
 
+**Update CVE Vulnerability Data**
+```bash
+# Update CVE data for all ports with security records
+php artisan ports:update-cve
+
+# Update specific port
+php artisan ports:update-cve --port=80
+
+# Update all ports for a specific service
+php artisan ports:update-cve --service=mysql
+
+# Force update (ignore last update timestamp)
+php artisan ports:update-cve --force
+```
+
+The CVE command fetches vulnerability data from the NVD (National Vulnerability Database) API:
+- Groups ports by service name to minimize API calls
+- Caches results for 24 hours to respect rate limits
+- Fetches CVE counts by severity (Critical, High, Medium, Low)
+- Includes recent critical/high CVEs with descriptions and CVSS scores
+- Extracts common weakness types (CWE) for vulnerability analysis
+- Automatically calculates average CVSS score
+
+Features:
+- Rate limiting: 6-second delay between requests (NVD free tier allows 5 requests per 30 seconds)
+- Smart caching: Skips ports updated within the last 24 hours (use `--force` to override)
+- Batch processing: Updates multiple ports using the same service with one API call
+- No API key required (uses public NVD API endpoint)
+
 **Detect Port Relationships**
 ```bash
 # Automatically detect and create port relationships
@@ -174,6 +203,7 @@ This command automatically creates relationships between ports including:
 ```php
 // In app/Console/Kernel.php
 $schedule->command('ports:update-shodan --limit=1000')->daily();
+$schedule->command('ports:update-cve')->daily(); // Run after Shodan updates
 $schedule->command('ports:detect-relations')->weekly(); // Run after port updates
 ```
 

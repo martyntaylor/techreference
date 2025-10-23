@@ -44,7 +44,8 @@ class PortObserver
 
         // Popularity cache can be handled separately
         if ($port->wasChanged('view_count')) {
-            Cache::forget('ports:popular');
+            Cache::forget('ports:home:popular');
+            Cache::forget('ports:home:top-ports');
         }
 
         // Refresh materialized views if significant changes
@@ -78,12 +79,14 @@ class PortObserver
         foreach ($port->categories as $category) {
             Cache::forget("category:{$category->slug}");
             if (method_exists(Cache::getStore(), 'tags')) {
-                Cache::tags(['categories', "category:{$category->id}"])->flush();
+                Cache::tags(['category', "category:{$category->id}"])->flush();
             }
         }
 
-        // Clear popular ports cache
-        Cache::forget('ports:popular');
+        // Clear home page caches
+        Cache::forget('ports:home:categories');
+        Cache::forget('ports:home:top-ports');
+        Cache::forget('ports:home:popular');
 
         // Clear search result caches (use tags if supported)
         if (method_exists(Cache::getStore(), 'tags')) {

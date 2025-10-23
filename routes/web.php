@@ -29,6 +29,12 @@ Route::get('/port/{ports}', [PortController::class, 'show'])
     ->whereNumber('ports') // 1-65535, binding returns Collection of all protocols
     ->middleware('cache.response');
 
+// Port vulnerabilities page
+Route::get('/port/{port}/vulnerabilities', [PortController::class, 'vulnerabilities'])
+    ->name('port.vulnerabilities')
+    ->whereNumber('port')
+    ->middleware('cache.response');
+
 // Ports landing page (must come before other /ports/* routes)
 Route::get('/ports', [\App\Http\Controllers\Ports\PortsHomeController::class, 'index'])
     ->name('ports.index')
