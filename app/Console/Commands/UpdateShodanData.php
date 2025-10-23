@@ -187,14 +187,13 @@ class UpdateShodanData extends Command
      */
     private function updateOrCreatePortSecurity(int $portNumber, array $shodanData): void
     {
-        // Find port in database (we need the port_id)
+        // Find or create port in database
         $port = Port::where('port_number', $portNumber)->first();
 
         if (! $port) {
-            $this->skipped++;
-            $this->newLine();
-            $this->warn("Port {$portNumber} not found in database, skipping...");
-            return;
+            // Create a minimal port record for non-IANA ports found in Shodan
+            $port = $this->createNonIanaPort($portNumber, $shodanData);
+            $this->created++;
         }
 
         // Extract data
@@ -399,6 +398,79 @@ class UpdateShodanData extends Command
         }
 
         return 'Other';
+    }
+
+    /**
+     * Create a minimal port record for non-IANA ports discovered in Shodan.
+     */
+    private function createNonIanaPort(int $portNumber, array $shodanData): Port
+    {
+        // Determine protocol (default to TCP, but check for common UDP ports)
+        $protocol = $this->guessProtocol($portNumber);
+
+        // Try to infer service name from products if available
+        $serviceName = $this->inferServiceName($portNumber, $shodanData);
+
+        // Create port record
+        $port = Port::create([
+            'port_number' => $portNumber,
+            'protocol' => $protocol,
+            'transport_protocol' => strtolower($protocol),
+            'service_name' => $serviceName,
+            'description' => "Port discovered in Shodan data with " . number_format($shodanData['total'] ?? 0) . " exposed devices. Not officially registered with IANA.",
+            'iana_status' => 'Unregistered',
+            'iana_official' => false,
+            'encrypted_default' => false,
+            'risk_level' => $this->determineRiskLevelFromExposure($shodanData['total'] ?? 0),
+        ]);
+
+        return $port;
+    }
+
+    /**
+     * Guess the protocol (TCP/UDP) for a port.
+     */
+    private function guessProtocol(int $portNumber): string
+    {
+        // Common UDP ports
+        $commonUdpPorts = [53, 67, 68, 69, 123, 161, 162, 500, 514, 1900, 4500];
+
+        return in_array($portNumber, $commonUdpPorts) ? 'UDP' : 'TCP';
+    }
+
+    /**
+     * Infer service name from Shodan product data or port number.
+     */
+    private function inferServiceName(int $portNumber, array $shodanData): string
+    {
+        // If we have product facets, use the most common product as service name
+        if (isset($shodanData['facets']['product'][0]['value'])) {
+            $topProduct = $shodanData['facets']['product'][0]['value'];
+            return ucfirst(strtolower($topProduct));
+        }
+
+        // Otherwise, return generic name based on port range
+        if ($portNumber < 1024) {
+            return "System Port {$portNumber}";
+        } elseif ($portNumber < 49152) {
+            return "Registered Port {$portNumber}";
+        } else {
+            return "Dynamic Port {$portNumber}";
+        }
+    }
+
+    /**
+     * Determine risk level based on exposure count alone.
+     */
+    private function determineRiskLevelFromExposure(int $exposedCount): string
+    {
+        if ($exposedCount > 1000000) {
+            return 'High';
+        } elseif ($exposedCount > 10000) {
+            return 'Medium';
+        } else {
+            return 'Low';
+        }
     }
 
     /**
