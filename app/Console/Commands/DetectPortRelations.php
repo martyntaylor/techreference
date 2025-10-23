@@ -66,20 +66,25 @@ class DetectPortRelations extends Command
         $this->info('Detecting secure versions...');
 
         $secureVersions = [
-            80 => [443, 'HTTPS is the secure (encrypted) version of HTTP'],
-            21 => [990, 'FTPS (FTP over SSL/TLS) is the secure version of FTP'],
-            21 => [22, 'SFTP (SSH File Transfer Protocol) is a secure alternative to FTP'],
-            110 => [995, 'POP3S is the secure (encrypted) version of POP3'],
-            143 => [993, 'IMAPS is the secure (encrypted) version of IMAP'],
-            25 => [465, 'SMTPS (SMTP over SSL) is a secure version of SMTP'],
-            25 => [587, 'SMTP with STARTTLS (submission) is a secure alternative to plain SMTP'],
-            23 => [22, 'SSH is the secure replacement for Telnet'],
-            3306 => [33060, 'MySQL X Protocol provides secure communication'],
+            80   => [[443, 'HTTPS is the secure (encrypted) version of HTTP']],
+            21   => [
+                [990, 'FTPS (FTP over SSL/TLS) is the secure version of FTP'],
+                [22,  'SFTP (SSH File Transfer Protocol) is a secure alternative to FTP'],
+            ],
+            110  => [[995, 'POP3S is the secure (encrypted) version of POP3']],
+            143  => [[993, 'IMAPS is the secure (encrypted) version of IMAP']],
+            25   => [
+                [465, 'SMTPS (SMTP over SSL) is a secure version of SMTP'],
+                [587, 'SMTP with STARTTLS (submission) is a secure alternative to plain SMTP'],
+            ],
+            23   => [[22, 'SSH is the secure replacement for Telnet']],
+            3306 => [[33060, 'MySQL X Protocol provides secure communication']],
         ];
 
-        foreach ($secureVersions as $insecurePort => $data) {
-            [$securePort, $description] = is_array($data) ? $data : [$data, null];
-            $this->createRelation($insecurePort, $securePort, PortRelation::TYPE_SECURE_VERSION, $description);
+        foreach ($secureVersions as $insecurePort => $relations) {
+            foreach ($relations as [$securePort, $description]) {
+                $this->createRelation($insecurePort, $securePort, PortRelation::TYPE_SECURE_VERSION, $description);
+            }
         }
     }
 
