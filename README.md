@@ -209,6 +209,77 @@ $schedule->command('ports:detect-relations')->weekly(); // Run after port update
 
 ---
 
+## Security Features
+
+### Rate Limiting
+All public routes are protected with IP-based rate limiting to prevent abuse:
+- **Standard Routes** (port pages, categories, index): 60 requests per minute per IP
+- **Expensive Operations** (search, port ranges): 30 requests per minute per IP
+- **Authentication Routes**: 6 requests per minute per IP (login, registration)
+
+### Security Headers
+All responses include comprehensive security headers via the `SecurityHeaders` middleware:
+- **Content-Security-Policy**: Restricts resource loading to trusted sources
+  - **Production**: Uses nonce-based CSP (no `unsafe-inline`/`unsafe-eval`) for strong XSS protection
+  - **Development**: Allows relaxed inline/eval for easier debugging
+  - Use `csp_nonce()` helper for inline scripts: `<script nonce="{{ csp_nonce() }}">`
+- **X-Frame-Options**: Prevents clickjacking attacks (DENY)
+- **X-Content-Type-Options**: Prevents MIME type sniffing (nosniff)
+- **Referrer-Policy**: Controls referrer information (strict-origin-when-cross-origin)
+- **Permissions-Policy**: Restricts browser features (geolocation, camera, microphone, etc.)
+- **Strict-Transport-Security**: Enforces HTTPS in production (HSTS with preload)
+
+#### Using CSP Nonces for Inline Scripts
+In production, inline scripts require a nonce attribute for CSP compliance:
+```blade
+<script nonce="{{ csp_nonce() }}">
+    // Your inline JavaScript code
+    console.log('This script will work with CSP');
+</script>
+```
+
+### Input Validation & Sanitization
+- Form Request validation on all user inputs (PortSearchRequest, RangeRequest, ShowPortRequest)
+- Automatic input sanitization (strip_tags, trim, normalize whitespace)
+- Port number validation (1-65535 range)
+- SQL injection prevention via Eloquent ORM parameterization
+- XSS prevention via Blade `{{ }}` escaping
+- CSRF protection on all forms (Laravel default)
+
+### Audit Logging
+Admin actions are automatically logged for security auditing:
+- User authentication events (login, logout, failed attempts, registration, password reset)
+- Model changes (created, updated, deleted) via `Auditable` trait
+- Tracks user ID, IP address, user agent, old/new values
+- Searchable audit logs with indexed timestamps
+- **Automatic sensitive field redaction** (passwords, tokens, API keys)
+- **Transaction-safe logging** (logs after DB commit to avoid ghost entries on rollback)
+
+Add the `Auditable` trait to any model to enable automatic audit logging:
+```php
+use App\Models\Concerns\Auditable;
+
+class YourModel extends Model
+{
+    use Auditable;
+
+    // Optional: customize redacted fields
+    protected array $auditRedact = [
+        'password',
+        'api_key',
+        'secret',
+        'custom_sensitive_field',
+    ];
+}
+```
+
+Sensitive fields are automatically redacted in audit logs and replaced with `[REDACTED]`:
+- `password`, `remember_token`, `api_key`, `secret`, `token`
+- `two_factor_secret`, `two_factor_recovery_codes`
+- `api_token`, `access_token`, `refresh_token`
+
+---
+
 ## Testing
 
 ```bash

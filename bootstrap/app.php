@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\CacheResponse;
 use App\Http\Middleware\LogPortViews;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Apply global middleware to web routes
         $middleware->web(append: [
+            SecurityHeaders::class,
             LogPortViews::class,
         ]);
     })

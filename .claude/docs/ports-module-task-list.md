@@ -414,40 +414,40 @@
 ## 10. Security Implementation
 
 ### 10.1 Input Validation & Sanitization
-- [ ] Use Form Request validation for all inputs
-- [ ] Sanitize all user inputs (strip tags, escape HTML)
-- [ ] Validate port numbers (1-65535)
-- [ ] Prevent SQL injection (use parameterized queries)
-- [ ] Prevent XSS (escape output, use Blade {{ }} syntax)
-- [ ] Implement CSRF protection on all forms
+- [x] Use Form Request validation for all inputs (PortSearchRequest, RangeRequest, ShowPortRequest)
+- [x] Sanitize all user inputs (strip tags, escape HTML)
+- [x] Validate port numbers (1-65535)
+- [x] Prevent SQL injection (use parameterized queries)
+- [x] Prevent XSS (escape output, use Blade {{ }} syntax)
+- [x] Implement CSRF protection on all forms (Laravel default)
 
 ### 10.2 SQL Injection Prevention
-- [ ] Use Eloquent ORM (automatic parameterization)
-- [ ] Never use raw queries with user input
-- [ ] Use query builder bindings for complex queries
-- [ ] Validate and cast all route parameters
+- [x] Use Eloquent ORM (automatic parameterization)
+- [x] Never use raw queries with user input
+- [x] Use query builder bindings for complex queries
+- [x] Validate and cast all route parameters
 
 ### 10.3 Rate Limiting & DDoS Protection
-- [ ] Configure throttle middleware on all routes
-- [ ] Implement IP-based rate limiting
+- [x] Configure throttle middleware on all routes (60/min standard, 30/min for expensive ops)
+- [x] Implement IP-based rate limiting (Laravel throttle middleware)
 - [ ] Add CAPTCHA for search after X failed attempts
 - [ ] Use Cloudflare for DDoS protection
-- [ ] Implement request throttling per API key
+- [ ] ~~Implement request throttling per API key~~ (API endpoints not needed)
 
 ### 10.4 Security Headers
-- [ ] Add Content-Security-Policy header
-- [ ] Add X-Frame-Options (DENY)
-- [ ] Add X-Content-Type-Options (nosniff)
-- [ ] Add Referrer-Policy
-- [ ] Add Permissions-Policy
-- [ ] Configure in middleware or web server
+- [x] Add Content-Security-Policy header (SecurityHeaders middleware)
+- [x] Add X-Frame-Options (DENY)
+- [x] Add X-Content-Type-Options (nosniff)
+- [x] Add Referrer-Policy
+- [x] Add Permissions-Policy
+- [x] Configure in middleware or web server (SecurityHeaders middleware applied globally)
 
 ### 10.5 Data Security
 - [ ] Encrypt sensitive configuration data
-- [ ] Store API keys in .env (never commit)
+- [x] Store API keys in .env (never commit) (SHODAN_API_KEY, NVD_API_KEY)
 - [ ] Use Laravel's encryption for sensitive DB fields
 - [ ] Implement database backups (daily)
-- [ ] Audit logging for admin actions
+- [x] Audit logging for admin actions (AuditLog model, Auditable trait, auth event listeners)
 
 ---
 
