@@ -737,16 +737,8 @@ class UpdateCveData extends Command
             // Invalidate port page caches
             Cache::forget("port:{$portNumber}:vulnerabilities:v1");
 
-            // Invalidate category caches that contain CVE data
-            DB::table('categories')->pluck('slug')->each(function ($slug) {
-                Cache::forget("category:{$slug}:filter-counts");
-                Cache::forget("category:{$slug}:stats");
-                // Invalidate all-ports cache variations (sort, filter, pagination)
-                Cache::forget("category:{$slug}:all-ports:all:recent:1");
-                Cache::forget("category:{$slug}:all-ports:all:popular:1");
-                Cache::forget("category:{$slug}:all-ports:all:cve_count:1");
-                Cache::forget("category:{$slug}:all-ports:all:cvss_score:1");
-            });
+            // Invalidate all category caches that contain CVE data (using cache tags)
+            Cache::tags(['category'])->flush();
         });
     }
 

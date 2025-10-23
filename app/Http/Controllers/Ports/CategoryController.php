@@ -42,7 +42,7 @@ class CategoryController extends Controller
 
         // Cache the full collection for 1 hour (limit to 2000 items for memory safety)
         $categoryId = $category->id;
-        $allPorts = Cache::remember($cacheKey, 3600, function () use ($categoryId, $protocol, $riskLevel, $cveSeverity, $minExposures, $sort) {
+        $allPorts = Cache::tags(['category', "category:{$categoryId}"])->remember($cacheKey, 3600, function () use ($categoryId, $protocol, $riskLevel, $cveSeverity, $minExposures, $sort) {
             // Start with Port model to use query scopes
             $query = Port::query()
                 ->whereHas('categories', fn ($q) => $q->where('categories.id', $categoryId))
@@ -144,7 +144,7 @@ class CategoryController extends Controller
         );
 
         // Get filter counts for UI
-        $filterCounts = Cache::remember("category:{$category->slug}:filter-counts", 3600, function () use ($categoryId) {
+        $filterCounts = Cache::tags(['category', "category:{$categoryId}"])->remember("category:{$category->slug}:filter-counts", 3600, function () use ($categoryId) {
             $category = Category::findOrFail($categoryId);
             return [
                 'protocols' => $category->ports()
@@ -159,7 +159,7 @@ class CategoryController extends Controller
         });
 
         // Get category-level statistics
-        $categoryStats = Cache::remember("category:{$category->slug}:stats", 3600, function () use ($categoryId) {
+        $categoryStats = Cache::tags(['category', "category:{$categoryId}"])->remember("category:{$category->slug}:stats", 3600, function () use ($categoryId) {
             // Get security statistics from ports in this category
             // Use DB query builder to avoid BelongsToMany pivot column issues
             $securityStats = \DB::table('ports')
