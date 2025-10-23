@@ -725,6 +725,9 @@ class UpdateCveData extends Command
                     'cve_updated_at' => now(),
                 ]
             );
+
+            // Invalidate port page caches
+            Cache::forget("port:{$portNumber}:vulnerabilities:v1");
         });
     }
 

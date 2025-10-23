@@ -81,24 +81,28 @@ class PortController extends Controller
      */
     public function vulnerabilities(int $port): View
     {
-        // Get all protocols for this port number
-        $ports = Port::where('port_number', $port)
-            ->with(['categories', 'security'])
-            ->get();
+        $cacheKey = "port:{$port}:vulnerabilities:v1";
 
-        if ($ports->isEmpty()) {
+        [$ports, $primaryPort] = Cache::remember($cacheKey, 3600, function () use ($port) {
+            $ports = Port::where('port_number', $port)
+                ->with(['categories', 'security'])
+                ->get();
+
+            if ($ports->isEmpty()) {
+                return [collect(), null];
+            }
+
+            $primary = $ports->first();
+            $primary->load([
+                'cves' => fn ($q) => $q->orderBy('published_date', 'desc'),
+            ]);
+
+            return [$ports, $primary];
+        });
+
+        if ($ports->isEmpty() || !$primaryPort) {
             abort(404, "Port {$port} not found");
         }
-
-        // Use first port for metadata
-        $primaryPort = $ports->first();
-
-        // Load all CVEs for this port
-        $primaryPort->load([
-            'cves' => function ($query) {
-                $query->orderBy('published_date', 'desc');
-            },
-        ]);
 
         return view('ports.vulnerabilities', [
             'port' => $primaryPort,
