@@ -75,7 +75,7 @@ class PortSecurity extends Model
      * Get the ports that use this port number (typically multiple protocols).
      * Note: This returns all port records (TCP, UDP, SCTP) for the same port_number.
      *
-     * @return HasMany<Port>
+     * @return HasMany<Port, PortSecurity>
      */
     public function ports(): HasMany
     {
