@@ -243,8 +243,8 @@ class ImportIanaPorts extends Command
         $portData = [
             'port_number' => (int) $data['port_number'],
             'protocol' => strtoupper($data['protocol']),
-            'service_name' => $data['service_name'],
-            'description' => $data['description'],
+            'service_name' => isset($data['service_name']) ? trim($data['service_name']) : null,
+            'description' => isset($data['description']) ? trim($data['description']) : null,
             'iana_status' => $this->determineIanaStatus($data),
             'iana_official' => $this->isOfficialPort($data),
             'encrypted_default' => $this->isEncryptedByDefault($data),
