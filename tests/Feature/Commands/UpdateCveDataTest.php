@@ -63,7 +63,7 @@ test('command updates CVE data for ports', function () {
         ->assertExitCode(0);
 
     // Verify port_security was updated
-    $security = PortSecurity::where('port_id', $port->id)->first();
+    $security = PortSecurity::where('port_number', $port->port_number)->first();
     expect($security)->not->toBeNull();
     expect($security->cve_count)->toBe(2);
     expect($security->latest_cve)->toBe('CVE-2024-20994');
@@ -133,7 +133,7 @@ test('command filters CVEs with rejected status', function () {
 
     $this->artisan('ports:update-cve')->assertExitCode(0);
 
-    $security = PortSecurity::where('port_id', $port->id)->first();
+    $security = PortSecurity::where('port_number', $port->port_number)->first();
     expect($security->cve_count)->toBe(1); // Only 1, rejected CVE filtered out
     expect($security->latest_cve)->toBe('CVE-2024-12345');
 });
@@ -183,7 +183,7 @@ test('command filters CVEs with disputed status', function () {
 
     $this->artisan('ports:update-cve')->assertExitCode(0);
 
-    $security = PortSecurity::where('port_id', $port->id)->first();
+    $security = PortSecurity::where('port_number', $port->port_number)->first();
     expect($security->cve_count)->toBe(1); // Only 1, disputed CVE filtered out
     expect($security->latest_cve)->toBe('CVE-2024-11111');
 });
@@ -227,8 +227,8 @@ test('command caches CVE data by service name', function () {
     $this->artisan('ports:update-cve')->assertExitCode(0);
 
     // Both ports should have same CVE data
-    $security1 = PortSecurity::where('port_id', $port1->id)->first();
-    $security2 = PortSecurity::where('port_id', $port2->id)->first();
+    $security1 = PortSecurity::where('port_number', $port1->port_number)->first();
+    $security2 = PortSecurity::where('port_number', $port2->port_number)->first();
 
     expect($security1->cve_count)->toBe(1);
     expect($security2->cve_count)->toBe(1);
@@ -284,8 +284,8 @@ test('command can update specific port with --port option', function () {
         ->assertExitCode(0);
 
     // Only port 3306 should be updated
-    expect(PortSecurity::where('port_id', $port1->id)->exists())->toBeTrue();
-    expect(PortSecurity::where('port_id', $port2->id)->exists())->toBeFalse();
+    expect(PortSecurity::where('port_number', $port1->port_number)->exists())->toBeTrue();
+    expect(PortSecurity::where('port_number', $port2->port_number)->exists())->toBeFalse();
 });
 
 test('command can filter by service name with --service option', function () {
@@ -347,7 +347,7 @@ test('command handles API errors gracefully', function () {
         ->assertExitCode(0);
 
     // Port security should not be created due to error
-    expect(PortSecurity::where('port_id', $port->id)->exists())->toBeFalse();
+    expect(PortSecurity::where('port_number', $port->port_number)->exists())->toBeFalse();
 });
 
 test('command skips recently updated ports unless --force is used', function () {
@@ -359,7 +359,7 @@ test('command skips recently updated ports unless --force is used', function () 
 
     // Create recent port_security record
     PortSecurity::create([
-        'port_id' => $port->id,
+        'port_number' => $port->port_number,
         'cve_count' => 5,
         'latest_cve' => 'CVE-2024-12345',
         'cve_updated_at' => now()->subHours(1), // Updated 1 hour ago

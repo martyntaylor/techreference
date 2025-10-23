@@ -12,52 +12,122 @@ return new class extends Migration
      */
     public function up(): void
     {
+        $driver = Schema::getConnection()->getDriverName();
+
         // Drop materialized views that depend on port_security.port_id
-        if (Schema::getConnection()->getDriverName() === 'pgsql') {
+        if ($driver === 'pgsql') {
             DB::statement('DROP MATERIALIZED VIEW IF EXISTS popular_ports CASCADE');
         }
 
-        // Step 1: Add port_number column (nullable initially to populate data)
-        Schema::table('port_security', function (Blueprint $table) {
-            $table->unsignedInteger('port_number')->nullable()->after('id');
-        });
+        if ($driver === 'sqlite') {
+            // SQLite: Skip this migration entirely - recreate the table manually
+            DB::statement('PRAGMA foreign_keys = OFF');
 
-        // Step 2: Populate port_number from ports table via port_id
-        DB::statement('
-            UPDATE port_security
-            SET port_number = ports.port_number
-            FROM ports
-            WHERE port_security.port_id = ports.id
-        ');
+            // Rename old table
+            DB::statement('ALTER TABLE port_security RENAME TO port_security_old');
 
-        // Step 2b: Remove duplicate port_security records (keep only the first one per port_number)
-        // This is needed because the old design had one record per port_id, but we want one per port_number
-        DB::statement('
-            DELETE FROM port_security
-            WHERE id NOT IN (
-                SELECT MIN(id)
-                FROM port_security
-                GROUP BY port_number
-            )
-        ');
+            // Create new table with port_number instead of port_id (without indexes - they exist from old table)
+            DB::statement('
+                CREATE TABLE port_security (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    port_number INTEGER NOT NULL UNIQUE,
+                    shodan_exposed_count INTEGER DEFAULT 0 NOT NULL,
+                    shodan_updated_at DATETIME,
+                    censys_exposed_count INTEGER DEFAULT 0 NOT NULL,
+                    censys_updated_at DATETIME,
+                    cve_count INTEGER DEFAULT 0 NOT NULL,
+                    latest_cve VARCHAR(50),
+                    cve_updated_at DATETIME,
+                    top_countries TEXT,
+                    security_recommendations TEXT,
+                    top_products TEXT,
+                    top_operating_systems TEXT,
+                    top_organizations TEXT,
+                    top_asns TEXT,
+                    cve_critical_count INTEGER DEFAULT 0 NOT NULL,
+                    cve_high_count INTEGER DEFAULT 0 NOT NULL,
+                    cve_medium_count INTEGER DEFAULT 0 NOT NULL,
+                    cve_low_count INTEGER DEFAULT 0 NOT NULL,
+                    cve_avg_score NUMERIC(3, 1),
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+            ');
 
-        // Step 3: Make port_number NOT NULL and add constraints
-        Schema::table('port_security', function (Blueprint $table) {
-            // Make port_number required
-            $table->unsignedInteger('port_number')->nullable(false)->change();
+            // Copy data - group by port_number to eliminate duplicates
+            DB::statement('
+                INSERT INTO port_security
+                SELECT
+                    MIN(ps.id) as id,
+                    p.port_number,
+                    MAX(ps.shodan_exposed_count) as shodan_exposed_count,
+                    MAX(ps.shodan_updated_at) as shodan_updated_at,
+                    MAX(ps.censys_exposed_count) as censys_exposed_count,
+                    MAX(ps.censys_updated_at) as censys_updated_at,
+                    MAX(ps.cve_count) as cve_count,
+                    MAX(ps.latest_cve) as latest_cve,
+                    MAX(ps.cve_updated_at) as cve_updated_at,
+                    ps.top_countries,
+                    ps.security_recommendations,
+                    ps.top_products,
+                    ps.top_operating_systems,
+                    ps.top_organizations,
+                    ps.top_asns,
+                    MAX(ps.cve_critical_count) as cve_critical_count,
+                    MAX(ps.cve_high_count) as cve_high_count,
+                    MAX(ps.cve_medium_count) as cve_medium_count,
+                    MAX(ps.cve_low_count) as cve_low_count,
+                    MAX(ps.cve_avg_score) as cve_avg_score,
+                    MIN(ps.created_at) as created_at,
+                    MAX(ps.updated_at) as updated_at
+                FROM port_security_old ps
+                INNER JOIN ports p ON ps.port_id = p.id
+                GROUP BY p.port_number
+            ');
 
-            // Add unique constraint on port_number (one security record per port number)
-            $table->unique('port_number');
+            // Drop old table
+            DB::statement('DROP TABLE port_security_old');
 
-            // Add index for faster lookups (note: cannot add foreign key because ports.port_number is not unique)
-            $table->index('port_number');
-        });
+            // Create indexes
+            DB::statement('CREATE INDEX port_security_port_number_index ON port_security (port_number)');
+            DB::statement('CREATE INDEX port_security_shodan_updated_at_index ON port_security (shodan_updated_at)');
+            DB::statement('CREATE INDEX port_security_censys_updated_at_index ON port_security (censys_updated_at)');
+            DB::statement('CREATE INDEX port_security_cve_updated_at_index ON port_security (cve_updated_at)');
 
-        // Step 4: Drop the old port_id foreign key and column
-        Schema::table('port_security', function (Blueprint $table) {
-            $table->dropForeign(['port_id']);
-            $table->dropColumn('port_id');
-        });
+            DB::statement('PRAGMA foreign_keys = ON');
+        } else {
+            // PostgreSQL/MySQL: Standard migration
+            Schema::table('port_security', function (Blueprint $table) {
+                $table->unsignedInteger('port_number')->nullable()->after('id');
+            });
+
+            DB::statement('
+                UPDATE port_security
+                SET port_number = ports.port_number
+                FROM ports
+                WHERE port_security.port_id = ports.id
+            ');
+
+            DB::statement('
+                DELETE FROM port_security
+                WHERE id NOT IN (
+                    SELECT MIN(id)
+                    FROM port_security
+                    GROUP BY port_number
+                )
+            ');
+
+            Schema::table('port_security', function (Blueprint $table) {
+                $table->unsignedInteger('port_number')->nullable(false)->change();
+                $table->unique('port_number');
+                $table->index('port_number');
+            });
+
+            Schema::table('port_security', function (Blueprint $table) {
+                $table->dropForeign(['port_id']);
+                $table->dropColumn('port_id');
+            });
+        }
 
         // Recreate the popular_ports materialized view with port_number instead of port_id
         if (Schema::getConnection()->getDriverName() === 'pgsql') {
