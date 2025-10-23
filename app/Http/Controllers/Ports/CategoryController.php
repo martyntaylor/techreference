@@ -185,58 +185,67 @@ class CategoryController extends Controller
         });
 
         // Get category-level statistics
-        $categoryStats = Cache::tags(['category', "category:{$categoryId}"])->remember("category:{$category->slug}:stats", 3600, function () use ($categoryId) {
-            // Get security statistics from ports in this category
-            // Use DB query builder to avoid BelongsToMany pivot column issues
-            $securityStats = DB::table('ports')
-                ->join('port_categories', 'ports.id', '=', 'port_categories.port_id')
-                ->join('port_security', 'ports.port_number', '=', 'port_security.port_number')
-                ->where('port_categories.category_id', $categoryId)
-                ->selectRaw('
-                    SUM(port_security.shodan_exposed_count) as total_exposures,
-                    SUM(port_security.cve_count) as total_cves,
-                    SUM(port_security.cve_critical_count) as total_critical_cves,
-                    SUM(port_security.cve_high_count) as total_high_cves,
-                    SUM(port_security.cve_medium_count) as total_medium_cves,
-                    SUM(port_security.cve_low_count) as total_low_cves,
-                    AVG(port_security.cve_avg_score) as avg_cvss_score,
-                    MAX(port_security.shodan_exposed_count) as max_exposures,
-                    MAX(port_security.cve_count) as max_cves
-                ')
-                ->first();
+        $categoryStats = Cache::tags(['category', "category:{$categoryId}"])->remember(
+            "category:{$category->slug}:stats",
+            3600,
+            static function () use ($categoryId): array {
+                // Get security statistics from ports in this category
+                // Use DB query builder to avoid BelongsToMany pivot column issues
+                $securityStats = DB::table('ports')
+                    ->join('port_categories', 'ports.id', '=', 'port_categories.port_id')
+                    ->join('port_security', 'ports.port_number', '=', 'port_security.port_number')
+                    ->where('port_categories.category_id', $categoryId)
+                    ->selectRaw('
+                        SUM(port_security.shodan_exposed_count) as total_exposures,
+                        SUM(port_security.cve_count) as total_cves,
+                        SUM(port_security.cve_critical_count) as total_critical_cves,
+                        SUM(port_security.cve_high_count) as total_high_cves,
+                        SUM(port_security.cve_medium_count) as total_medium_cves,
+                        SUM(port_security.cve_low_count) as total_low_cves,
+                        AVG(port_security.cve_avg_score) as avg_cvss_score,
+                        MAX(port_security.shodan_exposed_count) as max_exposures,
+                        MAX(port_security.cve_count) as max_cves
+                    ')
+                    ->first();
 
-            // Get port with most exposures
-            $mostExposedPort = DB::table('ports')
-                ->join('port_categories', 'ports.id', '=', 'port_categories.port_id')
-                ->join('port_security', 'ports.port_number', '=', 'port_security.port_number')
-                ->where('port_categories.category_id', $categoryId)
-                ->orderBy('port_security.shodan_exposed_count', 'desc')
-                ->select('ports.port_number', 'ports.service_name', 'port_security.shodan_exposed_count')
-                ->first();
+                // Get port with most exposures (with deterministic tie-breaker)
+                $mostExposedPort = DB::table('ports')
+                    ->join('port_categories', 'ports.id', '=', 'port_categories.port_id')
+                    ->join('port_security', 'ports.port_number', '=', 'port_security.port_number')
+                    ->where('port_categories.category_id', $categoryId)
+                    ->orderBy('port_security.shodan_exposed_count', 'desc')
+                    ->orderBy('ports.port_number')
+                    ->select('ports.port_number', 'ports.service_name', 'port_security.shodan_exposed_count')
+                    ->first();
 
-            // Get port with most CVEs
-            $mostVulnerablePort = DB::table('ports')
-                ->join('port_categories', 'ports.id', '=', 'port_categories.port_id')
-                ->join('port_security', 'ports.port_number', '=', 'port_security.port_number')
-                ->where('port_categories.category_id', $categoryId)
-                ->orderBy('port_security.cve_count', 'desc')
-                ->select('ports.port_number', 'ports.service_name', 'port_security.cve_count')
-                ->first();
+                // Get port with most CVEs (with deterministic tie-breaker)
+                $mostVulnerablePort = DB::table('ports')
+                    ->join('port_categories', 'ports.id', '=', 'port_categories.port_id')
+                    ->join('port_security', 'ports.port_number', '=', 'port_security.port_number')
+                    ->where('port_categories.category_id', $categoryId)
+                    ->orderBy('port_security.cve_count', 'desc')
+                    ->orderBy('ports.port_number')
+                    ->select('ports.port_number', 'ports.service_name', 'port_security.cve_count')
+                    ->first();
 
-            return [
-                'total_exposures' => $securityStats?->total_exposures ?? 0,
-                'total_cves' => $securityStats?->total_cves ?? 0,
-                'total_critical_cves' => $securityStats?->total_critical_cves ?? 0,
-                'total_high_cves' => $securityStats?->total_high_cves ?? 0,
-                'total_medium_cves' => $securityStats?->total_medium_cves ?? 0,
-                'total_low_cves' => $securityStats?->total_low_cves ?? 0,
-                'avg_cvss_score' => isset($securityStats?->avg_cvss_score)
+                // Compute avg_cvss_score with explicit null checks (avoid nullsafe on LHS of ??)
+                $avgCvss = ($securityStats && $securityStats->avg_cvss_score !== null)
                     ? round((float) $securityStats->avg_cvss_score, 1)
-                    : null,
-                'most_exposed_port' => $mostExposedPort,
-                'most_vulnerable_port' => $mostVulnerablePort,
-            ];
-        });
+                    : null;
+
+                return [
+                    'total_exposures' => $securityStats ? (int) $securityStats->total_exposures : 0,
+                    'total_cves' => $securityStats ? (int) $securityStats->total_cves : 0,
+                    'total_critical_cves' => $securityStats ? (int) $securityStats->total_critical_cves : 0,
+                    'total_high_cves' => $securityStats ? (int) $securityStats->total_high_cves : 0,
+                    'total_medium_cves' => $securityStats ? (int) $securityStats->total_medium_cves : 0,
+                    'total_low_cves' => $securityStats ? (int) $securityStats->total_low_cves : 0,
+                    'avg_cvss_score' => $avgCvss,
+                    'most_exposed_port' => $mostExposedPort,
+                    'most_vulnerable_port' => $mostVulnerablePort,
+                ];
+            }
+        );
 
         return view('ports.category', [
             'category' => $category,
