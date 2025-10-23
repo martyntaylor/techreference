@@ -198,12 +198,12 @@ class CategoryController extends Controller
                 ->first();
 
             return [
-                'total_exposures' => $securityStats?->total_exposures ?? 0,
-                'total_cves' => $securityStats?->total_cves ?? 0,
-                'total_critical_cves' => $securityStats?->total_critical_cves ?? 0,
-                'total_high_cves' => $securityStats?->total_high_cves ?? 0,
-                'total_medium_cves' => $securityStats?->total_medium_cves ?? 0,
-                'total_low_cves' => $securityStats?->total_low_cves ?? 0,
+                'total_exposures' => $securityStats->total_exposures ?? 0,
+                'total_cves' => $securityStats->total_cves ?? 0,
+                'total_critical_cves' => $securityStats->total_critical_cves ?? 0,
+                'total_high_cves' => $securityStats->total_high_cves ?? 0,
+                'total_medium_cves' => $securityStats->total_medium_cves ?? 0,
+                'total_low_cves' => $securityStats->total_low_cves ?? 0,
                 'avg_cvss_score' => isset($securityStats->avg_cvss_score)
                     ? round((float) $securityStats->avg_cvss_score, 1)
                     : null,
