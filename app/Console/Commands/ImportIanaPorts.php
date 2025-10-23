@@ -60,6 +60,29 @@ class ImportIanaPorts extends Command
         // Map header columns to indices
         $columnMap = $this->mapColumns($header);
 
+        // Validate required headers exist
+        $requiredHeaders = [
+            'service_name' => 'Service Name',
+            'port_number' => 'Port Number',
+            'protocol' => 'Transport Protocol',
+            'description' => 'Description',
+        ];
+
+        $missingHeaders = [];
+        foreach ($requiredHeaders as $key => $headerName) {
+            if (! array_key_exists($key, $columnMap) || $columnMap[$key] === false) {
+                $missingHeaders[] = $headerName;
+            }
+        }
+
+        if (! empty($missingHeaders)) {
+            $this->error('Required CSV columns are missing: '.implode(', ', $missingHeaders));
+            $this->info('Expected columns: '.implode(', ', array_values($requiredHeaders)));
+            fclose($handle);
+
+            return self::FAILURE;
+        }
+
         $imported = 0;
         $updated = 0;
         $skipped = 0;
