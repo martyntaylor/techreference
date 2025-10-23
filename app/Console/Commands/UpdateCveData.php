@@ -497,20 +497,23 @@ class UpdateCveData extends Command
     /**
      * Fetch CVE data for a specific port number from NVD API (with caching).
      *
-     * @return array<int, array{cve_id: string, description: string, published_date: string, cvss_score: float|null, severity: string|null, weakness_types: array, references: array}>
+     * @return array<int, array{cve_id: string, description: string, published_date: string, last_modified_date: string|null, cvss_score: float|null, severity: string|null, weakness_types: array<int, string>, references: array<int, string>}>
      */
     private function fetchCveDataForPort(int $portNumber, string $cacheKey): array
     {
-        // Return cached data if available
-        if (Cache::has($cacheKey)) {
-            return Cache::get($cacheKey);
+        // Return cached data if available (with default empty array to ensure never null)
+        $cachedData = Cache::get($cacheKey, []);
+        if (is_array($cachedData) && !empty($cachedData)) {
+            return $cachedData;
         }
 
         // Query NVD API for port-specific CVEs
         $cveRecords = $this->queryNvdApiByPort($portNumber);
 
-        // Cache result (24 hours)
-        Cache::put($cacheKey, $cveRecords, 86400);
+        // Cache result (24 hours) - only cache if we have data
+        if (!empty($cveRecords)) {
+            Cache::put($cacheKey, $cveRecords, 86400);
+        }
 
         return $cveRecords;
     }
@@ -518,12 +521,12 @@ class UpdateCveData extends Command
     /**
      * Query NVD API for CVEs mentioning a specific port number.
      *
-     * @return array<int, array{cve_id: string, description: string, published_date: string, cvss_score: float|null, severity: string|null, weakness_types: array, references: array}>
+     * @return array<int, array{cve_id: string, description: string, published_date: string, last_modified_date: string|null, cvss_score: float|null, severity: string|null, weakness_types: array<int, string>, references: array<int, string>}>
      */
     private function queryNvdApiByPort(int $portNumber): array
     {
         $url = $this->nvdEndpoint;
-        $cveRecords = [];
+        $cveRecords = []; // Initialize as empty array to ensure we always return an array
 
         // Try multiple search patterns for better coverage
         $searchPatterns = [
@@ -639,6 +642,8 @@ class UpdateCveData extends Command
 
     /**
      * Store CVE records and link them to the port.
+     *
+     * @param  array<int, array{cve_id: string, description: string, published_date: string, last_modified_date: string|null, cvss_score: float|null, severity: string|null, weakness_types: array<int, string>, references: array<int, string>}>  $cveRecords
      */
     private function storeCveRecords(int $portNumber, array $cveRecords): void
     {
