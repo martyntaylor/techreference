@@ -82,10 +82,14 @@ class CategoryController extends Controller
             }
 
             // Minimum exposures filter
-            if ($minExposures) {
-                $query->whereHas('security', function ($q) use ($minExposures) {
-                    $q->where('shodan_exposed_count', '>=', (int) $minExposures);
-                });
+            if ($minExposures !== null && $minExposures !== '') {
+                $minExposuresInt = (int) $minExposures;
+                if ($minExposuresInt > 0) {
+                    $query->whereHas('security', function ($q) use ($minExposuresInt) {
+                        $q->where('shodan_exposed_count', '>=', $minExposuresInt);
+                    });
+                }
+                // If $minExposuresInt is 0, no filter needed (all ports qualify)
             }
 
             // Apply sorting
@@ -99,16 +103,19 @@ class CategoryController extends Controller
                 case 'exposures':
                     $query->leftJoin('port_security', 'ports.port_number', '=', 'port_security.port_number')
                         ->orderByRaw('port_security.shodan_exposed_count DESC NULLS LAST')
+                        ->orderBy('ports.port_number')
                         ->select('ports.*');
                     break;
                 case 'cves':
                     $query->leftJoin('port_security', 'ports.port_number', '=', 'port_security.port_number')
                         ->orderByRaw('port_security.cve_count DESC NULLS LAST')
+                        ->orderBy('ports.port_number')
                         ->select('ports.*');
                     break;
                 case 'cvss':
                     $query->leftJoin('port_security', 'ports.port_number', '=', 'port_security.port_number')
                         ->orderByRaw('port_security.cve_avg_score DESC NULLS LAST')
+                        ->orderBy('ports.port_number')
                         ->select('ports.*');
                     break;
                 case 'popular':
