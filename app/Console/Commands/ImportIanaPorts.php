@@ -240,9 +240,14 @@ class ImportIanaPorts extends Command
      */
     private function preparePortData(array $data): array
     {
+        $transportProtocol = isset($data['protocol']) && $data['protocol'] !== ''
+            ? trim(strtolower($data['protocol']))
+            : null;
+
         $portData = [
             'port_number' => (int) $data['port_number'],
             'protocol' => strtoupper($data['protocol']),
+            'transport_protocol' => $transportProtocol,
             'service_name' => isset($data['service_name']) ? trim($data['service_name']) : null,
             'description' => isset($data['description']) ? trim($data['description']) : null,
             'iana_status' => $this->determineIanaStatus($data),
