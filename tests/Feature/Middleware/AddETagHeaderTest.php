@@ -75,4 +75,33 @@ class AddETagHeaderTest extends TestCase
         $this->assertFalse($response->headers->has('ETag'));
         $this->assertFalse($response->headers->has('Last-Modified'));
     }
+
+    public function test_etag_not_added_when_cache_control_no_store(): void
+    {
+        // Create a test route with no-store directive
+        \Route::get('/test-no-store', function () {
+            return response('private content')
+                ->header('Cache-Control', 'no-store, no-cache');
+        });
+
+        $response = $this->get('/test-no-store');
+
+        // Responses with no-store should not have ETag
+        $this->assertFalse($response->headers->has('ETag'));
+    }
+
+    public function test_etag_not_added_when_authorization_header(): void
+    {
+        // Create a simple test route
+        \Route::get('/test-auth', function () {
+            return response('authenticated content');
+        });
+
+        $response = $this->get('/test-auth', [
+            'Authorization' => 'Bearer test-token',
+        ]);
+
+        // Responses to authenticated requests should not have ETag
+        $this->assertFalse($response->headers->has('ETag'));
+    }
 }

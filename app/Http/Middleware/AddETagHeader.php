@@ -39,11 +39,22 @@ class AddETagHeader
         }
 
         // Don't add ETag for responses that already have one or shouldn't be cached
-        if ($response->headers->has('ETag') || $response->headers->has('Set-Cookie')) {
+        if (
+            $response->headers->has('ETag')
+            || $response->headers->has('Set-Cookie')
+            || stripos((string) $response->headers->get('Cache-Control', ''), 'no-store') !== false
+            || $request->headers->has('Authorization')
+        ) {
             return $response;
         }
 
-        $content = $response->getContent();
+        // Try to get response content (may throw LogicException for streamed responses)
+        try {
+            $content = $response->getContent();
+        } catch (\LogicException $e) {
+            // StreamedResponse::getContent() throws LogicException
+            return $response;
+        }
 
         // Skip if content is false (can happen with some response types)
         if ($content === false) {

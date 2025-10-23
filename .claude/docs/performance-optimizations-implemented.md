@@ -28,13 +28,22 @@ No `<img>` tags currently exist in Blade templates. When images are added in the
 - Skips responses with Set-Cookie header
 - Works alongside existing `CacheResponse` middleware
 
+**Smart Skipping** (hardened for production):
+- ✅ Skips `StreamedResponse` (file downloads, SSE, real-time data)
+- ✅ Skips `BinaryFileResponse` (file downloads, already cached)
+- ✅ Skips responses with `Cache-Control: no-store` (private/sensitive data)
+- ✅ Skips requests with `Authorization` header (authenticated requests)
+- ✅ Try/catch for `LogicException` when calling `getContent()` (prevents crashes)
+- ✅ Handles `false` content gracefully
+
 **Benefits**:
 - Reduces bandwidth usage (304 responses are empty)
 - Faster page loads for returning visitors
 - Better CDN caching support
 - Standard HTTP caching compliant
+- Production-safe (doesn't crash on edge cases)
 
-**Testing**: All 4 tests passing
+**Testing**: All 7 tests passing (16 assertions)
 
 ---
 
