@@ -498,7 +498,7 @@ class UpdateCveData extends Command
     {
         // Return cached data if available (with default empty array to ensure never null)
         $cachedData = Cache::get($cacheKey, []);
-        if (is_array($cachedData) && !empty($cachedData)) {
+        if (!empty($cachedData)) {
             return $cachedData;
         }
 
@@ -589,6 +589,9 @@ class UpdateCveData extends Command
                         if (isset($cve['metrics']['cvssMetricV31'][0])) {
                             $cvssScore = $cve['metrics']['cvssMetricV31'][0]['cvssData']['baseScore'] ?? null;
                             $severity = $cve['metrics']['cvssMetricV31'][0]['cvssData']['baseSeverity'] ?? null;
+                        } elseif (isset($cve['metrics']['cvssMetricV30'][0])) {
+                            $cvssScore = $cve['metrics']['cvssMetricV30'][0]['cvssData']['baseScore'] ?? null;
+                            $severity = $cve['metrics']['cvssMetricV30'][0]['cvssData']['baseSeverity'] ?? null;
                         } elseif (isset($cve['metrics']['cvssMetricV2'][0])) {
                             $cvssScore = $cve['metrics']['cvssMetricV2'][0]['cvssData']['baseScore'] ?? null;
                             $severity = $cve['metrics']['cvssMetricV2'][0]['baseSeverity'] ?? null;
