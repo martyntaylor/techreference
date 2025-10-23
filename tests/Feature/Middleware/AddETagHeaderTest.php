@@ -59,4 +59,20 @@ class AddETagHeaderTest extends TestCase
         // POST requests should not have ETag
         $this->assertFalse($response->headers->has('ETag'));
     }
+
+    public function test_etag_not_added_to_streamed_responses(): void
+    {
+        // Create a test route that returns a streamed response
+        \Route::get('/test-stream', function () {
+            return response()->stream(function () {
+                echo 'streamed content';
+            });
+        });
+
+        $response = $this->get('/test-stream');
+
+        // Streamed responses should not have ETag
+        $this->assertFalse($response->headers->has('ETag'));
+        $this->assertFalse($response->headers->has('Last-Modified'));
+    }
 }

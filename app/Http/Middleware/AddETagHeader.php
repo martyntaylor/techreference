@@ -4,7 +4,9 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AddETagHeader
 {
@@ -25,6 +27,11 @@ class AddETagHeader
 
         // Get the response
         $response = $next($request);
+
+        // Skip ETag handling for streamed and file responses
+        if ($response instanceof StreamedResponse || $response instanceof BinaryFileResponse) {
+            return $response;
+        }
 
         // Only add ETags to successful responses
         if ($response->getStatusCode() !== 200) {
