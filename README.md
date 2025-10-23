@@ -209,6 +209,50 @@ $schedule->command('ports:detect-relations')->weekly(); // Run after port update
 
 ---
 
+## Security Features
+
+### Rate Limiting
+All public routes are protected with IP-based rate limiting to prevent abuse:
+- **Standard Routes** (port pages, categories, index): 60 requests per minute per IP
+- **Expensive Operations** (search, port ranges): 30 requests per minute per IP
+- **Authentication Routes**: 6 requests per minute per IP (login, registration)
+
+### Security Headers
+All responses include comprehensive security headers via the `SecurityHeaders` middleware:
+- **Content-Security-Policy**: Restricts resource loading to trusted sources
+- **X-Frame-Options**: Prevents clickjacking attacks (DENY)
+- **X-Content-Type-Options**: Prevents MIME type sniffing (nosniff)
+- **Referrer-Policy**: Controls referrer information (strict-origin-when-cross-origin)
+- **Permissions-Policy**: Restricts browser features (geolocation, camera, microphone, etc.)
+- **Strict-Transport-Security**: Enforces HTTPS in production (HSTS with preload)
+
+### Input Validation & Sanitization
+- Form Request validation on all user inputs (PortSearchRequest, RangeRequest, ShowPortRequest)
+- Automatic input sanitization (strip_tags, trim, normalize whitespace)
+- Port number validation (1-65535 range)
+- SQL injection prevention via Eloquent ORM parameterization
+- XSS prevention via Blade `{{ }}` escaping
+- CSRF protection on all forms (Laravel default)
+
+### Audit Logging
+Admin actions are automatically logged for security auditing:
+- User authentication events (login, logout, failed attempts, registration, password reset)
+- Model changes (created, updated, deleted) via `Auditable` trait
+- Tracks user ID, IP address, user agent, old/new values
+- Searchable audit logs with indexed timestamps
+
+Add the `Auditable` trait to any model to enable automatic audit logging:
+```php
+use App\Models\Concerns\Auditable;
+
+class YourModel extends Model
+{
+    use Auditable;
+}
+```
+
+---
+
 ## Testing
 
 ```bash
