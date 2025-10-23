@@ -196,9 +196,9 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
             <!-- Security Recommendations -->
             @if($port->security->security_recommendations)
                 <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4">
-                    <p class="text-sm text-yellow-700 dark:text-yellow-300">
-                        {{ $port->security->security_recommendations }}
-                    </p>
+                    <div class="text-sm text-yellow-700 dark:text-yellow-300">
+                        {!! nl2br(e($port->security->security_recommendations)) !!}
+                    </div>
                 </div>
             @endif
         </div>
