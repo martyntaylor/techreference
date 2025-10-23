@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PortSecurity extends Model
 {
@@ -73,14 +74,18 @@ class PortSecurity extends Model
     /**
      * Get the ports that use this port number (typically multiple protocols).
      * Note: This returns all port records (TCP, UDP, SCTP) for the same port_number.
+     *
+     * @return HasMany<Port>
      */
-    public function ports()
+    public function ports(): HasMany
     {
         return $this->hasMany(Port::class, 'port_number', 'port_number');
     }
 
     /**
      * Get the primary port (typically TCP) for this port number.
+     *
+     * @return BelongsTo<Port, PortSecurity>
      */
     public function port(): BelongsTo
     {
