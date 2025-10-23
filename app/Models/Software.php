@@ -91,6 +91,9 @@ class Software extends Model
 
     /**
      * Scope a query to only include active software.
+     *
+     * @param  Builder<Software>  $query
+     * @return Builder<Software>
      */
     public function scopeActive(Builder $query): Builder
     {
@@ -99,6 +102,9 @@ class Software extends Model
 
     /**
      * Scope a query to filter by category (legacy string field).
+     *
+     * @param  Builder<Software>  $query
+     * @return Builder<Software>
      */
     public function scopeByCategory(Builder $query, string $category): Builder
     {
@@ -107,6 +113,9 @@ class Software extends Model
 
     /**
      * Scope a query to filter by category ID.
+     *
+     * @param  Builder<Software>  $query
+     * @return Builder<Software>
      */
     public function scopeByCategoryId(Builder $query, int $categoryId): Builder
     {
