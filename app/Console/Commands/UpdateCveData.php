@@ -205,59 +205,69 @@ class UpdateCveData extends Command
     }
 
     /**
-     * Query NVD API for CVE data.
+     * Query NVD API for CVE data with pagination support.
      *
      * @return array{count: int, latest_cve: string|null, latest_date: string|null, critical_count: int, high_count: int, medium_count: int, low_count: int, avg_score: float|null, critical_recent: array<int, array{id: string, published: string, cvss: float, severity: string, description: string}>, weakness_types: array<string, int>}
      */
     private function queryNvdApi(string $serviceName): array
     {
         $url = $this->nvdEndpoint;
+        $resultsPerPage = 2000; // NVD API max per page
+        $startIndex = 0;
+        $accumulated = ['totalResults' => 0, 'vulnerabilities' => []];
 
-        // Build request
-        $request = Http::timeout(30)
-            ->retry(3, 1000); // Retry 3 times with 1s delay
+        do {
+            // Build request for each page
+            $request = Http::timeout(30)
+                ->retry(3, 1000); // Retry 3 times with 1s delay
 
-        // Add API key if available
-        if (! empty($this->nvdApiKey)) {
-            $request->withHeaders([
-                'apiKey' => $this->nvdApiKey,
-            ]);
-        }
+            // Add API key and headers if available
+            if (! empty($this->nvdApiKey)) {
+                $request->withHeaders([
+                    'apiKey' => $this->nvdApiKey,
+                    'User-Agent' => 'techreference/ports-update-cve',
+                    'Accept' => 'application/json',
+                ]);
+            } else {
+                $request->withHeaders([
+                    'User-Agent' => 'techreference/ports-update-cve',
+                    'Accept' => 'application/json',
+                ]);
+            }
 
-        // Query parameters
-        $params = [
-            'keywordSearch' => $serviceName,
-            'resultsPerPage' => 2000, // Max results
-        ];
-
-        // Note: NVD API has a 120-day max range limit, so we'll query without date filters
-        // to get all CVEs, then filter by date in code if needed
-
-        $response = $request->get($url, $params);
-
-        if (! $response->successful()) {
-            throw new \Exception("NVD API request failed: {$response->status()}");
-        }
-
-        $data = $response->json();
-
-        // Handle null response
-        if ($data === null) {
-            return [
-                'count' => 0,
-                'latest_cve' => null,
-                'latest_date' => null,
-                'critical_count' => 0,
-                'high_count' => 0,
-                'medium_count' => 0,
-                'low_count' => 0,
-                'avg_score' => null,
-                'critical_recent' => [],
-                'weakness_types' => [],
+            // Query parameters with pagination
+            $params = [
+                'keywordSearch' => $serviceName,
+                'resultsPerPage' => $resultsPerPage,
+                'startIndex' => $startIndex,
             ];
-        }
 
-        return $this->parseCveResponse($data);
+            $response = $request->get($url, $params);
+
+            if (! $response->successful()) {
+                throw new \Exception("NVD API request failed: {$response->status()}");
+            }
+
+            $page = $response->json() ?? ['totalResults' => 0, 'vulnerabilities' => []];
+
+            // Update total results count
+            $accumulated['totalResults'] = max($accumulated['totalResults'], (int) ($page['totalResults'] ?? 0));
+
+            // Merge vulnerabilities from this page
+            $pageVulnerabilities = $page['vulnerabilities'] ?? [];
+            if (! empty($pageVulnerabilities)) {
+                $accumulated['vulnerabilities'] = array_merge($accumulated['vulnerabilities'], $pageVulnerabilities);
+            }
+
+            $startIndex += $resultsPerPage;
+
+            // Respect rate limits between pages (except for last iteration)
+            if ($startIndex < $accumulated['totalResults']) {
+                sleep($this->requestDelay);
+            }
+        } while ($startIndex < $accumulated['totalResults']);
+
+        return $this->parseCveResponse($accumulated);
     }
 
     /**
