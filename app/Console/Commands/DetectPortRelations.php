@@ -185,9 +185,16 @@ class DetectPortRelations extends Command
         foreach ($suites as $suiteName => $ports) {
             for ($i = 0; $i < count($ports); $i++) {
                 for ($j = $i + 1; $j < count($ports); $j++) {
+                    // Create bidirectional relations for symmetric lookup
                     $this->createRelation(
                         $ports[$i],
                         $ports[$j],
+                        PortRelation::TYPE_PART_OF_SUITE,
+                        "Both are part of {$suiteName}"
+                    );
+                    $this->createRelation(
+                        $ports[$j],
+                        $ports[$i],
                         PortRelation::TYPE_PART_OF_SUITE,
                         "Both are part of {$suiteName}"
                     );
@@ -216,9 +223,17 @@ class DetectPortRelations extends Command
                 ->first();
 
             if ($tcpPort && $udpPort) {
+                // Create bidirectional relations for symmetric lookup
                 $this->createRelation(
                     $tcpPort->id,
                     $udpPort->id,
+                    PortRelation::TYPE_COMPLEMENTARY,
+                    "Port {$portNumber} uses both TCP and UDP protocols",
+                    true // Use port IDs directly
+                );
+                $this->createRelation(
+                    $udpPort->id,
+                    $tcpPort->id,
                     PortRelation::TYPE_COMPLEMENTARY,
                     "Port {$portNumber} uses both TCP and UDP protocols",
                     true // Use port IDs directly
@@ -269,7 +284,9 @@ class DetectPortRelations extends Command
         foreach ($associations as $port1 => $relatedPorts) {
             foreach ($relatedPorts as $data) {
                 [$port2, $description] = $data;
+                // Create bidirectional relations for symmetric lookup
                 $this->createRelation($port1, $port2, PortRelation::TYPE_ASSOCIATED_WITH, $description);
+                $this->createRelation($port2, $port1, PortRelation::TYPE_ASSOCIATED_WITH, $description);
             }
         }
     }
@@ -335,6 +352,12 @@ class DetectPortRelations extends Command
             $port2 = $this->resolvePort($portIdentifier2);
 
             if (! $port1 || ! $port2) {
+                if (! $port1) {
+                    $this->warn("Port {$portIdentifier1} not found in database");
+                }
+                if (! $port2) {
+                    $this->warn("Port {$portIdentifier2} not found in database");
+                }
                 return;
             }
 
