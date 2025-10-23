@@ -50,7 +50,7 @@ $breadcrumbs[] = ['name' => 'Vulnerabilities'];
                 <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                     <div class="text-sm text-gray-500 dark:text-gray-400">Total CVEs</div>
                     <div class="text-2xl font-bold text-gray-900 dark:text-white">
-                        {{ number_format($port->security->cve_count) }}
+                        {{ number_format($port->security->cve_count ?? 0) }}
                     </div>
                 </div>
                 <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
