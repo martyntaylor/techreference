@@ -217,97 +217,123 @@ class UpdateCveData extends Command
         $totalPatterns = count($searchPatterns);
         foreach ($searchPatterns as $i => $pattern) {
             try {
-                $request = Http::timeout(30)->retry(3, 1000);
+                $startIndex = 0;
+                $resultsPerPage = 100;
+                $patternCompleted = false;
 
-                // Add API key if available
-                if (!empty($this->nvdApiKey)) {
-                    $request->withHeaders(['apiKey' => $this->nvdApiKey]);
-                }
+                // Paginate through all results for this pattern
+                while (!$patternCompleted) {
+                    $request = Http::timeout(30)->retry(3, 1000);
 
-                $params = [
-                    'keywordSearch' => $pattern,
-                    'resultsPerPage' => 100, // Limit per pattern to avoid too much data
-                ];
+                    // Add API key if available
+                    if (!empty($this->nvdApiKey)) {
+                        $request->withHeaders(['apiKey' => $this->nvdApiKey]);
+                    }
 
-                $response = $request->get($url, $params);
+                    $params = [
+                        'keywordSearch' => $pattern,
+                        'resultsPerPage' => $resultsPerPage,
+                        'startIndex' => $startIndex,
+                    ];
 
-                if ($response->successful()) {
-                    $data = $response->json();
-                    $vulnerabilities = $data['vulnerabilities'] ?? [];
+                    $response = $request->get($url, $params);
 
-                    foreach ($vulnerabilities as $vuln) {
-                        $cve = $vuln['cve'] ?? null;
-                        if (!$cve) {
-                            continue;
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        $totalResults = $data['totalResults'] ?? 0;
+                        $vulnerabilities = $data['vulnerabilities'] ?? [];
+
+                        // Log pagination info on first page
+                        if ($startIndex === 0 && $totalResults > $resultsPerPage) {
+                            $this->warn("Port {$portNumber} pattern '{$pattern}' has {$totalResults} results, paginating...");
                         }
 
-                        $cveId = $cve['id'] ?? null;
-                        if (!$cveId) {
-                            continue;
-                        }
-
-                        // Skip if we already have this CVE
-                        if (isset($cveRecords[$cveId])) {
-                            continue;
-                        }
-
-                        // Skip rejected/disputed CVEs
-                        $descriptions = $cve['descriptions'] ?? [];
-                        $isRejectedOrDisputed = false;
-                        foreach ($descriptions as $desc) {
-                            $descUpper = strtoupper($desc['value'] ?? '');
-                            if (str_contains($descUpper, 'REJECT') || str_contains($descUpper, 'DISPUTED')) {
-                                $isRejectedOrDisputed = true;
-                                break;
+                        foreach ($vulnerabilities as $vuln) {
+                            $cve = $vuln['cve'] ?? null;
+                            if (!$cve) {
+                                continue;
                             }
-                        }
 
-                        if ($isRejectedOrDisputed) {
-                            continue;
-                        }
+                            $cveId = $cve['id'] ?? null;
+                            if (!$cveId) {
+                                continue;
+                            }
 
-                        // Extract CVSS score and severity
-                        $cvssScore = null;
-                        $severity = null;
-                        if (isset($cve['metrics']['cvssMetricV31'][0])) {
-                            $cvssScore = $cve['metrics']['cvssMetricV31'][0]['cvssData']['baseScore'] ?? null;
-                            $severity = $cve['metrics']['cvssMetricV31'][0]['cvssData']['baseSeverity'] ?? null;
-                        } elseif (isset($cve['metrics']['cvssMetricV30'][0])) {
-                            $cvssScore = $cve['metrics']['cvssMetricV30'][0]['cvssData']['baseScore'] ?? null;
-                            $severity = $cve['metrics']['cvssMetricV30'][0]['cvssData']['baseSeverity'] ?? null;
-                        } elseif (isset($cve['metrics']['cvssMetricV2'][0])) {
-                            $cvssScore = $cve['metrics']['cvssMetricV2'][0]['cvssData']['baseScore'] ?? null;
-                            $severity = $cve['metrics']['cvssMetricV2'][0]['baseSeverity'] ?? null;
-                        }
+                            // Skip if we already have this CVE
+                            if (isset($cveRecords[$cveId])) {
+                                continue;
+                            }
 
-                        // Extract weakness types (CWE)
-                        $weaknessTypes = [];
-                        foreach ($cve['weaknesses'] ?? [] as $weakness) {
-                            foreach ($weakness['description'] ?? [] as $desc) {
-                                if (isset($desc['value']) && str_starts_with($desc['value'], 'CWE-')) {
-                                    $weaknessTypes[] = $desc['value'];
+                            // Skip rejected/disputed CVEs
+                            $descriptions = $cve['descriptions'] ?? [];
+                            $isRejectedOrDisputed = false;
+                            foreach ($descriptions as $desc) {
+                                $descUpper = strtoupper($desc['value'] ?? '');
+                                if (str_contains($descUpper, 'REJECT') || str_contains($descUpper, 'DISPUTED')) {
+                                    $isRejectedOrDisputed = true;
+                                    break;
                                 }
                             }
-                        }
 
-                        // Extract references
-                        $references = [];
-                        foreach ($cve['references'] ?? [] as $ref) {
-                            if (isset($ref['url'])) {
-                                $references[] = $ref['url'];
+                            if ($isRejectedOrDisputed) {
+                                continue;
                             }
+
+                            // Extract CVSS score and severity
+                            $cvssScore = null;
+                            $severity = null;
+                            if (isset($cve['metrics']['cvssMetricV31'][0])) {
+                                $cvssScore = $cve['metrics']['cvssMetricV31'][0]['cvssData']['baseScore'] ?? null;
+                                $severity = $cve['metrics']['cvssMetricV31'][0]['cvssData']['baseSeverity'] ?? null;
+                            } elseif (isset($cve['metrics']['cvssMetricV30'][0])) {
+                                $cvssScore = $cve['metrics']['cvssMetricV30'][0]['cvssData']['baseScore'] ?? null;
+                                $severity = $cve['metrics']['cvssMetricV30'][0]['cvssData']['baseSeverity'] ?? null;
+                            } elseif (isset($cve['metrics']['cvssMetricV2'][0])) {
+                                $cvssScore = $cve['metrics']['cvssMetricV2'][0]['cvssData']['baseScore'] ?? null;
+                                $severity = $cve['metrics']['cvssMetricV2'][0]['baseSeverity'] ?? null;
+                            }
+
+                            // Extract weakness types (CWE)
+                            $weaknessTypes = [];
+                            foreach ($cve['weaknesses'] ?? [] as $weakness) {
+                                foreach ($weakness['description'] ?? [] as $desc) {
+                                    if (isset($desc['value']) && str_starts_with($desc['value'], 'CWE-')) {
+                                        $weaknessTypes[] = $desc['value'];
+                                    }
+                                }
+                            }
+
+                            // Extract references
+                            $references = [];
+                            foreach ($cve['references'] ?? [] as $ref) {
+                                if (isset($ref['url'])) {
+                                    $references[] = $ref['url'];
+                                }
+                            }
+
+                            $cveRecords[$cveId] = [
+                                'cve_id' => $cveId,
+                                'description' => isset($cve['descriptions'][0]['value']) ? $cve['descriptions'][0]['value'] : '',
+                                'published_date' => $cve['published'] ?? null,
+                                'last_modified_date' => $cve['lastModified'] ?? null,
+                                'cvss_score' => $cvssScore,
+                                'severity' => $severity,
+                                'weakness_types' => $weaknessTypes,
+                                'references' => array_slice($references, 0, 10), // Limit to 10 refs
+                            ];
                         }
 
-                        $cveRecords[$cveId] = [
-                            'cve_id' => $cveId,
-                            'description' => isset($cve['descriptions'][0]['value']) ? $cve['descriptions'][0]['value'] : '',
-                            'published_date' => $cve['published'] ?? null,
-                            'last_modified_date' => $cve['lastModified'] ?? null,
-                            'cvss_score' => $cvssScore,
-                            'severity' => $severity,
-                            'weakness_types' => $weaknessTypes,
-                            'references' => array_slice($references, 0, 10), // Limit to 10 refs
-                        ];
+                        // Check if we need to fetch more results
+                        $startIndex += $resultsPerPage;
+                        if ($startIndex >= $totalResults || empty($vulnerabilities)) {
+                            $patternCompleted = true;
+                        } else {
+                            // Rate limiting between pagination requests
+                            sleep($this->requestDelay);
+                        }
+                    } else {
+                        // API request failed, stop pagination for this pattern
+                        $patternCompleted = true;
                     }
                 }
 
