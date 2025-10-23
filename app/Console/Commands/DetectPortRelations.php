@@ -275,6 +275,41 @@ class DetectPortRelations extends Command
     }
 
     /**
+     * Resolve a port by number, preferring TCP for dual-protocol ports.
+     *
+     * For ports that exist in both TCP and UDP (53, 123, 161, 162, 500, 514, 1900, 5060, 5353),
+     * this method returns the TCP variant by default to ensure consistent relations.
+     * Use createRelation with useDirectIds=true and explicit port IDs for protocol-specific relations.
+     *
+     * @param  int  $portNumber  The port number to resolve
+     * @return Port|null The resolved port (TCP if dual-protocol exists, otherwise first found)
+     */
+    private function resolvePort(int $portNumber): ?Port
+    {
+        // List of ports that commonly use both TCP and UDP
+        $dualProtocolPorts = [53, 123, 161, 162, 500, 514, 1900, 5060, 5353];
+
+        if (in_array($portNumber, $dualProtocolPorts)) {
+            // For dual-protocol ports, prefer TCP variant
+            $port = Port::where('port_number', $portNumber)
+                ->where('protocol', 'TCP')
+                ->first();
+
+            // Fallback to UDP if TCP doesn't exist
+            if (! $port) {
+                $port = Port::where('port_number', $portNumber)
+                    ->where('protocol', 'UDP')
+                    ->first();
+            }
+
+            return $port;
+        }
+
+        // For single-protocol ports, return first match
+        return Port::where('port_number', $portNumber)->first();
+    }
+
+    /**
      * Create a port relation if it doesn't exist.
      */
     private function createRelation(
@@ -289,8 +324,9 @@ class DetectPortRelations extends Command
             $portId1 = $portIdentifier1;
             $portId2 = $portIdentifier2;
         } else {
-            $port1 = Port::where('port_number', $portIdentifier1)->first();
-            $port2 = Port::where('port_number', $portIdentifier2)->first();
+            // Use protocol-aware resolution for port numbers
+            $port1 = $this->resolvePort($portIdentifier1);
+            $port2 = $this->resolvePort($portIdentifier2);
 
             if (! $port1 || ! $port2) {
                 return;
