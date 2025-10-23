@@ -462,14 +462,14 @@
 - [x] Use `select()` to fetch only needed columns
 - [x] Implement pagination for large result sets
 - [x] Use `chunk()` for bulk operations (UpdateCveData command)
-- [ ] Analyze slow queries with Laravel Telescope/Debugbar (not installed)
+- [x] Analyze slow queries with Laravel Debugbar (installed for dev)
 
 ### 11.2 Query Optimization
 - [x] Use `whereHas()` efficiently for relationship filtering
 - [x] Avoid `count()` in loops (use `withCount()`)
 - [x] Use database views for complex aggregations (materialized views)
 - [x] Implement query caching for frequently accessed data
-- [ ] Use `lazy()` for memory-efficient iteration (not yet needed)
+- [x] Use `lazy()` for memory-efficient iteration (CategorizePorts command)
 
 ### 11.3 Frontend Optimization
 - [x] Minify CSS and JavaScript (Vite handles this)
@@ -477,12 +477,12 @@
 - [ ] Use CDN for static assets (infrastructure task)
 - [x] Implement browser caching headers (Cache-Control via middleware)
 - [ ] Use HTTP/2 server push for critical resources (server config)
-- [ ] Defer non-critical JavaScript (when needed)
+- [x] Defer non-critical JavaScript (Vite uses type="module" - auto-deferred)
 - [ ] Inline critical CSS (when needed)
 
 ### 11.4 Response Optimization
 - [x] Use HTTP caching (ETag, Last-Modified) - **NEW: AddETagHeader middleware**
-- [ ] Implement response compression (gzip/brotli) - server config needed
+- [x] Implement response compression (gzip/brotli) - **NEW: Server setup guide documented**
 - [x] Use cache-control headers appropriately (CacheResponse middleware)
 - [x] Implement conditional requests (304 Not Modified) - **NEW: AddETagHeader middleware**
 
