@@ -252,6 +252,8 @@ Admin actions are automatically logged for security auditing:
 - Model changes (created, updated, deleted) via `Auditable` trait
 - Tracks user ID, IP address, user agent, old/new values
 - Searchable audit logs with indexed timestamps
+- **Automatic sensitive field redaction** (passwords, tokens, API keys)
+- **Transaction-safe logging** (logs after DB commit to avoid ghost entries on rollback)
 
 Add the `Auditable` trait to any model to enable automatic audit logging:
 ```php
@@ -260,8 +262,21 @@ use App\Models\Concerns\Auditable;
 class YourModel extends Model
 {
     use Auditable;
+
+    // Optional: customize redacted fields
+    protected array $auditRedact = [
+        'password',
+        'api_key',
+        'secret',
+        'custom_sensitive_field',
+    ];
 }
 ```
+
+Sensitive fields are automatically redacted in audit logs and replaced with `[REDACTED]`:
+- `password`, `remember_token`, `api_key`, `secret`, `token`
+- `two_factor_secret`, `two_factor_recovery_codes`
+- `api_token`, `access_token`, `refresh_token`
 
 ---
 
