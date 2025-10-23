@@ -78,7 +78,7 @@ class PortObserver
         foreach ($port->categories as $category) {
             Cache::forget("category:{$category->slug}");
             if (method_exists(Cache::getStore(), 'tags')) {
-                Cache::tags(['categories', "category:{$category->id}"])->flush();
+                Cache::tags(['category', "category:{$category->id}"])->flush();
             }
         }
 
