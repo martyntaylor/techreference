@@ -208,7 +208,7 @@ class ImportIanaPorts extends Command
     private function isValidPort(array $data): bool
     {
         // Must have port number and protocol
-        if (! isset($data['port_number']) || $data['port_number'] === '' || $data['port_number'] === null) {
+        if (! isset($data['port_number']) || $data['port_number'] === '') {
             return false;
         }
 
