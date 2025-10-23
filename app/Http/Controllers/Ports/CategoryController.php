@@ -21,6 +21,16 @@ class CategoryController extends Controller
         // Route model binding provides the Category via 'slug' parameter
         $category = $slug;
 
+        // Validate request parameters
+        $request->validate([
+            'protocol' => 'nullable|in:tcp,udp,sctp',
+            'risk_level' => 'nullable|in:High,Medium,Low',
+            'cve_severity' => 'nullable|in:critical,high,medium,low,none',
+            'min_exposures' => 'nullable|integer|min:0',
+            'sort' => 'nullable|in:port_number,name,risk,exposures,cves,cvss,popular',
+            'page' => 'nullable|integer|min:1',
+        ]);
+
         // Get filters from request
         $protocol = $request->input('protocol');
         $riskLevel = $request->input('risk_level');
