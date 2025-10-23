@@ -225,6 +225,7 @@ class ImportIanaPorts extends Command
             'iana_status' => $this->determineIanaStatus($data),
             'iana_official' => $this->isOfficialPort($data),
             'encrypted_default' => $this->isEncryptedByDefault($data),
+            'risk_level' => $this->determineRiskLevel($data),
         ];
 
         // Set iana_updated_at if modification date is available
@@ -345,5 +346,93 @@ class ImportIanaPorts extends Command
         }
 
         return empty($parts) ? null : implode("\n", $parts);
+    }
+
+    /**
+     * Determine risk level based on port characteristics.
+     * This provides an initial assessment that can be refined with CVE data later.
+     */
+    private function determineRiskLevel(array $data): string
+    {
+        $portNumber = (int) $data['port_number'];
+        $serviceName = strtolower($data['service_name'] ?? '');
+        $description = strtolower($data['description'] ?? '');
+        $isEncrypted = $this->isEncryptedByDefault($data);
+
+        // High risk: Known insecure protocols that transmit credentials in plaintext
+        $highRiskServices = [
+            'ftp', 'telnet', 'rlogin', 'rsh', 'rexec', 'tftp', 'snmp',
+            'finger', 'pop2', 'imap2', 'nntp', 'http', 'ldap', 'smb',
+        ];
+
+        foreach ($highRiskServices as $service) {
+            if (str_contains($serviceName, $service) && ! $isEncrypted) {
+                return 'High';
+            }
+        }
+
+        // High risk: Ports commonly used in attacks or amplification
+        $highRiskPorts = [
+            7,      // echo (DDoS amplification)
+            9,      // discard (DDoS amplification)
+            11,     // systat (information disclosure)
+            13,     // daytime (DDoS amplification)
+            17,     // qotd (DDoS amplification)
+            19,     // chargen (DDoS amplification)
+            69,     // TFTP (unauthenticated file transfer)
+            111,    // RPC (numerous vulnerabilities)
+            135,    // MSRPC (Windows vulnerabilities)
+            137,    // NetBIOS (SMB vulnerabilities)
+            138,    // NetBIOS
+            139,    // NetBIOS over TCP
+            161,    // SNMP (default community strings)
+            445,    // SMB (ransomware, EternalBlue)
+            512,    // rexec (no encryption)
+            513,    // rlogin (no encryption)
+            514,    // rsh (no encryption)
+            1433,   // MS SQL (frequently attacked)
+            1900,   // UPnP (security issues)
+            3389,   // RDP (brute force target)
+            5900,   // VNC (weak authentication)
+            6379,   // Redis (often misconfigured)
+        ];
+
+        if (in_array($portNumber, $highRiskPorts)) {
+            return 'High';
+        }
+
+        // Medium risk: Encrypted services but still externally accessible
+        if ($isEncrypted) {
+            return 'Medium';
+        }
+
+        // Medium risk: Database ports (should not be publicly exposed)
+        $databasePorts = [3306, 5432, 1521, 27017, 5984, 9200, 9300];
+        if (in_array($portNumber, $databasePorts)) {
+            return 'Medium';
+        }
+
+        // Medium risk: Administrative/management ports
+        $managementKeywords = ['admin', 'manage', 'control', 'monitor', 'debug', 'console'];
+        foreach ($managementKeywords as $keyword) {
+            if (str_contains($serviceName, $keyword) || str_contains($description, $keyword)) {
+                return 'Medium';
+            }
+        }
+
+        // Low risk: Reserved/Unassigned ports
+        $status = $this->determineIanaStatus($data);
+        if (in_array($status, ['Reserved', 'Unassigned', 'De-assigned'])) {
+            return 'Low';
+        }
+
+        // Low risk: Well-known encrypted services on standard ports
+        $lowRiskEncryptedPorts = [22, 443, 993, 995, 465, 636, 990];
+        if (in_array($portNumber, $lowRiskEncryptedPorts)) {
+            return 'Low';
+        }
+
+        // Default to Low for everything else
+        return 'Low';
     }
 }
