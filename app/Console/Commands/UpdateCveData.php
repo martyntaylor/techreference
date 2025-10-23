@@ -90,10 +90,8 @@ class UpdateCveData extends Command
                 $this->processed++;
                 $progressBar->advance();
 
-                // Rate limiting: Only sleep after actual API calls, not cached data
-                if (!$isCached && count($cveRecords) > 0) {
-                    sleep($this->requestDelay);
-                }
+                // Note: Rate limiting is handled per-request in queryNvdApiByPort()
+                // No additional port-level delay needed since we sleep between API requests
             } catch (\Exception $e) {
                 $this->errors++;
                 $progressBar->advance();
@@ -536,7 +534,8 @@ class UpdateCveData extends Command
             "port {$portNumber}/udp",
         ];
 
-        foreach ($searchPatterns as $pattern) {
+        $totalPatterns = count($searchPatterns);
+        foreach ($searchPatterns as $i => $pattern) {
             try {
                 $request = Http::timeout(30)->retry(3, 1000);
 
@@ -622,9 +621,9 @@ class UpdateCveData extends Command
                     }
                 }
 
-                // Rate limiting between search patterns
-                if (count($searchPatterns) > 1) {
-                    sleep(1);
+                // Rate limiting between search patterns (respect configured delay, skip after last pattern)
+                if ($i < $totalPatterns - 1) {
+                    sleep($this->requestDelay);
                 }
             } catch (\Exception $e) {
                 // Continue with other patterns if one fails
