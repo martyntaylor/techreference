@@ -3,6 +3,7 @@
 namespace App\Models\Concerns;
 
 use App\Models\AuditLog;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\DB;
 
 trait Auditable
@@ -79,8 +80,10 @@ trait Auditable
 
     /**
      * Get all audit logs for this model.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany<AuditLog>
      */
-    public function auditLogs()
+    public function auditLogs(): MorphMany
     {
         return $this->morphMany(AuditLog::class, 'auditable')->latest();
     }
