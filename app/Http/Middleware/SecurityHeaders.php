@@ -6,6 +6,16 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * SecurityHeaders Middleware
+ *
+ * Adds comprehensive security headers to all responses to protect against common web vulnerabilities.
+ *
+ * CSP Strategy:
+ * - Production: Uses nonce-based CSP without unsafe-inline/unsafe-eval for strong XSS protection
+ * - Development: Allows relaxed inline/eval for easier debugging
+ * - Use csp_nonce() helper in Blade templates for inline scripts: <script nonce="{{ csp_nonce() }}">
+ */
 class SecurityHeaders
 {
     /**
@@ -17,18 +27,29 @@ class SecurityHeaders
     {
         $response = $next($request);
 
+        // Generate CSP nonce for inline scripts
+        $nonce = base64_encode(random_bytes(16));
+        $request->attributes->set('csp_nonce', $nonce);
+
         // Content Security Policy - Restrict resource loading
-        $response->headers->set('Content-Security-Policy', implode('; ', [
+        $directives = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net", // AlpineJS needs unsafe-eval
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "script-src 'self' 'nonce-{$nonce}' https://cdn.jsdelivr.net",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // CSS nonces have poor browser support
             "font-src 'self' https://fonts.gstatic.com",
             "img-src 'self' data: https:",
             "connect-src 'self'",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",
-        ]));
+        ];
+
+        // Allow relaxed inline/eval in non-production environments for easier development
+        if (config('app.env') !== 'production') {
+            $directives[1] = "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'nonce-{$nonce}' https://cdn.jsdelivr.net";
+        }
+
+        $response->headers->set('Content-Security-Policy', implode('; ', $directives));
 
         // Prevent clickjacking attacks
         $response->headers->set('X-Frame-Options', 'DENY');

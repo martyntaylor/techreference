@@ -220,11 +220,23 @@ All public routes are protected with IP-based rate limiting to prevent abuse:
 ### Security Headers
 All responses include comprehensive security headers via the `SecurityHeaders` middleware:
 - **Content-Security-Policy**: Restricts resource loading to trusted sources
+  - **Production**: Uses nonce-based CSP (no `unsafe-inline`/`unsafe-eval`) for strong XSS protection
+  - **Development**: Allows relaxed inline/eval for easier debugging
+  - Use `csp_nonce()` helper for inline scripts: `<script nonce="{{ csp_nonce() }}">`
 - **X-Frame-Options**: Prevents clickjacking attacks (DENY)
 - **X-Content-Type-Options**: Prevents MIME type sniffing (nosniff)
 - **Referrer-Policy**: Controls referrer information (strict-origin-when-cross-origin)
 - **Permissions-Policy**: Restricts browser features (geolocation, camera, microphone, etc.)
 - **Strict-Transport-Security**: Enforces HTTPS in production (HSTS with preload)
+
+#### Using CSP Nonces for Inline Scripts
+In production, inline scripts require a nonce attribute for CSP compliance:
+```blade
+<script nonce="{{ csp_nonce() }}">
+    // Your inline JavaScript code
+    console.log('This script will work with CSP');
+</script>
+```
 
 ### Input Validation & Sanitization
 - Form Request validation on all user inputs (PortSearchRequest, RangeRequest, ShowPortRequest)
