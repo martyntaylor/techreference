@@ -77,12 +77,12 @@ class AddETagHeader
 
         // If ETag matches, return 304 Not Modified
         if ($ifNoneMatch && $ifNoneMatch === $etag) {
-            $headers = [
-                'ETag' => $etag,
-                'Cache-Control' => $response->headers->get('Cache-Control', 'public, max-age=3600'),
-            ];
+            $headers = ['ETag' => $etag];
             if ($lastModified) {
                 $headers['Last-Modified'] = $lastModified;
+            }
+            if ($response->headers->has('Cache-Control')) {
+                $headers['Cache-Control'] = $response->headers->get('Cache-Control');
             }
 
             return response('', 304)->withHeaders($headers);
@@ -91,12 +91,15 @@ class AddETagHeader
         // If Last-Modified matches and no newer version exists, return 304
         if ($ifModifiedSince && ! $ifNoneMatch) {
             if ($lastModified && strtotime($ifModifiedSince) >= strtotime($lastModified)) {
-                return response('', 304)
-                    ->withHeaders([
-                        'ETag' => $etag,
-                        'Last-Modified' => $lastModified,
-                        'Cache-Control' => $response->headers->get('Cache-Control', 'public, max-age=3600'),
-                    ]);
+                $headers = [
+                    'ETag' => $etag,
+                    'Last-Modified' => $lastModified,
+                ];
+                if ($response->headers->has('Cache-Control')) {
+                    $headers['Cache-Control'] = $response->headers->get('Cache-Control');
+                }
+
+                return response('', 304)->withHeaders($headers);
             }
         }
 

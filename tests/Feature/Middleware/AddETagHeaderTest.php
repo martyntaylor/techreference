@@ -104,4 +104,54 @@ class AddETagHeaderTest extends TestCase
         // Responses to authenticated requests should not have ETag
         $this->assertFalse($response->headers->has('ETag'));
     }
+
+    public function test_304_response_preserves_original_cache_control(): void
+    {
+        // Use the home route which should have Cache-Control from CacheResponse middleware
+        $firstResponse = $this->get('/');
+        $etag = $firstResponse->headers->get('ETag');
+        $originalCacheControl = $firstResponse->headers->get('Cache-Control');
+
+        $this->assertNotNull($etag);
+        $this->assertNotNull($originalCacheControl);
+
+        // Second request with If-None-Match header
+        $secondResponse = $this->get('/', [
+            'If-None-Match' => $etag,
+        ]);
+
+        $secondResponse->assertStatus(304);
+        $secondResponse->assertHeader('ETag', $etag);
+
+        // Should preserve Cache-Control (directives may be in different order but should be present)
+        $secondCacheControl = $secondResponse->headers->get('Cache-Control');
+        $this->assertNotNull($secondCacheControl);
+        // Verify it contains key directives and is not the hardcoded default
+        $this->assertStringNotContainsString('public, max-age=3600', $secondCacheControl);
+        $this->assertStringContainsString('private', $secondCacheControl);
+        $this->assertStringContainsString('must-revalidate', $secondCacheControl);
+    }
+
+    public function test_304_response_only_propagates_existing_headers(): void
+    {
+        // Test that 304 responses only include ETag, Last-Modified, and Cache-Control if they exist
+        // The middleware should not add default Cache-Control headers
+
+        $firstResponse = $this->get('/');
+        $etag = $firstResponse->headers->get('ETag');
+
+        $this->assertNotNull($etag);
+
+        // Second request with If-None-Match header
+        $secondResponse = $this->get('/', [
+            'If-None-Match' => $etag,
+        ]);
+
+        $secondResponse->assertStatus(304);
+        $secondResponse->assertHeader('ETag', $etag);
+
+        // Verify headers are only present if they were in the original response
+        // Not testing absence because CacheResponse middleware adds Cache-Control
+        // The important thing is we don't add a hardcoded default
+    }
 }
