@@ -204,7 +204,7 @@ class CategoryController extends Controller
                 'total_high_cves' => $securityStats?->total_high_cves ?? 0,
                 'total_medium_cves' => $securityStats?->total_medium_cves ?? 0,
                 'total_low_cves' => $securityStats?->total_low_cves ?? 0,
-                'avg_cvss_score' => isset($securityStats?->avg_cvss_score)
+                'avg_cvss_score' => isset($securityStats->avg_cvss_score)
                     ? round((float) $securityStats->avg_cvss_score, 1)
                     : null,
                 'most_exposed_port' => $mostExposedPort,
