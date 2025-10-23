@@ -448,6 +448,11 @@ class UpdateCveData extends Command
 
             // Invalidate all category caches that contain CVE data (using cache tags)
             Cache::tags(['category'])->flush();
+
+            // Invalidate home page caches (CVE updates affect security statistics)
+            Cache::forget('ports:home:categories');
+            Cache::forget('ports:home:top-ports');
+            Cache::forget('ports:home:popular');
         });
     }
 
