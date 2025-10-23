@@ -101,6 +101,11 @@ return new class extends Migration
                 $table->unsignedInteger('port_number')->nullable()->after('id');
             });
 
+            // Add index early for UPDATE performance (will be recreated with unique constraint later)
+            Schema::table('port_security', function (Blueprint $table) {
+                $table->index('port_number');
+            });
+
             DB::statement('
                 UPDATE port_security
                 SET port_number = ports.port_number
