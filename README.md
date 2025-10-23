@@ -153,10 +153,28 @@ Features:
 - Preserves detailed facet data during bulk updates
 - Captures top products, organizations, operating systems, countries, and ASNs
 
+**Detect Port Relationships**
+```bash
+# Automatically detect and create port relationships
+php artisan ports:detect-relations
+
+# Force recreate all relations (deletes existing first)
+php artisan ports:detect-relations --force
+```
+
+This command automatically creates relationships between ports including:
+- **Secure Versions**: HTTP→HTTPS, FTP→FTPS/SFTP, etc.
+- **Alternative Ports**: 80→8080, 443→8443, etc.
+- **Deprecated By**: Telnet→SSH, FTP→SFTP, etc.
+- **Part of Suite**: MongoDB cluster ports, Elasticsearch ports, Email services, etc.
+- **Complementary**: Same port number, different protocols (TCP/UDP)
+- **Associated With**: Commonly used together (HTTP with MySQL/Redis, etc.)
+
 **Scheduling Recommendations:**
 ```php
 // In app/Console/Kernel.php
 $schedule->command('ports:update-shodan --limit=1000')->daily();
+$schedule->command('ports:detect-relations')->weekly(); // Run after port updates
 ```
 
 ---
