@@ -14,29 +14,6 @@ use Illuminate\View\View;
 class CategoryController extends Controller
 {
     /**
-     * Get database-driver-aware ORDER BY expression for nullable columns.
-     *
-     * @param  string  $column  The column to order by
-     * @param  string  $direction  The sort direction (ASC or DESC)
-     * @return string  The ORDER BY expression
-     */
-    private function getOrderByWithNulls(string $column, string $direction = 'DESC'): string
-    {
-        $driver = DB::getDriverName();
-
-        if ($driver === 'pgsql') {
-            // PostgreSQL supports NULLS LAST/FIRST
-            return "{$column} {$direction} NULLS LAST";
-        } elseif ($driver === 'mysql') {
-            // MySQL: use IS NULL flag (0 = not null, 1 = null) to sort nulls last
-            return "{$column} IS NULL, {$column} {$direction}";
-        } else {
-            // SQLite and others: use CASE or similar
-            return "{$column} IS NULL, {$column} {$direction}";
-        }
-    }
-
-    /**
      * Display ports in the specified category.
      */
     public function show(Request $request, Category $slug): View
@@ -143,19 +120,19 @@ class CategoryController extends Controller
                     break;
                 case 'exposures':
                     $query->leftJoin('port_security', 'ports.port_number', '=', 'port_security.port_number')
-                        ->orderByRaw($this->getOrderByWithNulls('port_security.shodan_exposed_count', 'DESC'))
+                        ->orderByRaw('COALESCE(port_security.shodan_exposed_count, -1) DESC')
                         ->orderBy('ports.port_number')
                         ->select('ports.*');
                     break;
                 case 'cves':
                     $query->leftJoin('port_security', 'ports.port_number', '=', 'port_security.port_number')
-                        ->orderByRaw($this->getOrderByWithNulls('port_security.cve_count', 'DESC'))
+                        ->orderByRaw('COALESCE(port_security.cve_count, -1) DESC')
                         ->orderBy('ports.port_number')
                         ->select('ports.*');
                     break;
                 case 'cvss':
                     $query->leftJoin('port_security', 'ports.port_number', '=', 'port_security.port_number')
-                        ->orderByRaw($this->getOrderByWithNulls('port_security.cve_avg_score', 'DESC'))
+                        ->orderByRaw('COALESCE(port_security.cve_avg_score, -1) DESC')
                         ->orderBy('ports.port_number')
                         ->select('ports.*');
                     break;
