@@ -43,8 +43,8 @@ return new class extends Migration
 
         // Add constraints and indexes based on database driver
         if (config('database.default') === 'pgsql') {
-            // Add check constraint for PostgreSQL
-            DB::statement('ALTER TABLE ports ADD CONSTRAINT ports_port_number_check CHECK (port_number >= 1 AND port_number <= 65535)');
+            // Add check constraint for PostgreSQL (port 0 is valid - reserved by IANA)
+            DB::statement('ALTER TABLE ports ADD CONSTRAINT ports_port_number_check CHECK (port_number >= 0 AND port_number <= 65535)');
 
             // Add full-text search index for PostgreSQL
             DB::statement('CREATE INDEX ports_search_vector_idx ON ports USING GIN(to_tsvector(\'english\', COALESCE(service_name, \'\') || \' \' || COALESCE(description, \'\')))');
