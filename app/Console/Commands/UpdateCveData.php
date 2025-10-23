@@ -76,11 +76,8 @@ class UpdateCveData extends Command
 
         foreach ($uniquePortNumbers as $portNumber) {
             try {
-                // Check if cached
-                $cacheKey = 'cve:port:' . $portNumber;
-                $isCached = Cache::has($cacheKey);
-
                 // Fetch CVE data for this port number (with caching)
+                $cacheKey = 'cve:port:' . $portNumber;
                 $cveRecords = $this->fetchCveDataForPort($portNumber, $cacheKey);
 
                 // Store CVEs and link to port
