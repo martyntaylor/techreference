@@ -2,9 +2,12 @@
 
 use App\Models\AuditLog;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 
 use function Pest\Laravel\actingAs;
+
+uses(RefreshDatabase::class);
 
 test('audit log redacts sensitive fields when creating user', function () {
     $admin = User::factory()->create();
