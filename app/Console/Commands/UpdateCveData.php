@@ -553,8 +553,15 @@ class UpdateCveData extends Command
                     $vulnerabilities = $data['vulnerabilities'] ?? [];
 
                     foreach ($vulnerabilities as $vuln) {
-                        $cve = $vuln['cve'];
-                        $cveId = $cve['id'];
+                        $cve = $vuln['cve'] ?? null;
+                        if (!$cve) {
+                            continue;
+                        }
+
+                        $cveId = $cve['id'] ?? null;
+                        if (!$cveId) {
+                            continue;
+                        }
 
                         // Skip if we already have this CVE
                         if (isset($cveRecords[$cveId])) {
