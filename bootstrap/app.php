@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AddETagHeader;
 use App\Http\Middleware\CacheResponse;
 use App\Http\Middleware\LogPortViews;
 use App\Http\Middleware\SecurityHeaders;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Apply global middleware to web routes
         $middleware->web(append: [
             SecurityHeaders::class,
+            AddETagHeader::class,
             LogPortViews::class,
         ]);
     })

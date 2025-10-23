@@ -50,12 +50,15 @@ class CategorizePorts extends Command
             $query->where('port_number', $portNumber);
         }
 
-        $ports = $query->get();
-        $this->info("Processing {$ports->count()} ports...");
+        // Get count for progress bar
+        $totalCount = $query->count();
+        $this->info("Processing {$totalCount} ports...");
 
-        $progressBar = $this->output->createProgressBar($ports->count());
+        $progressBar = $this->output->createProgressBar($totalCount);
 
-        foreach ($ports as $port) {
+        // Use lazy() for memory-efficient iteration over large datasets
+        // lazy() fetches records in chunks (default 1000) without loading all into memory
+        foreach ($query->lazy() as $port) {
             $this->categorizePort($port);
             $progressBar->advance();
         }
