@@ -207,45 +207,53 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         @if($port->security->shodan_exposed_count > 0 && ($port->security->top_countries || $port->security->top_products || $port->security->top_operating_systems || $port->security->top_organizations))
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
             <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Internet Exposure Analysis</h2>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                Real-world data from Shodan showing where this port is exposed on the internet.
-            </p>
+            <div class="text-sm text-gray-600 dark:text-gray-400 mb-6 space-y-2">
+                <p>
+                    This data comes from <a href="https://www.shodan.io" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">Shodan</a>, a search engine that continuously scans the internet for publicly accessible services. The statistics below show real-world exposure patterns for port {{ $port->port_number }}, revealing where and how this port is actively being used across the internet.
+                </p>
+                <p>
+                    Understanding these exposure patterns is critical for security planning. If your organization uses this port, you can compare your configuration against common deployments, identify potential risks, and implement appropriate security measures based on real-world attack patterns.
+                </p>
+            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                 <x-top-list
                     title="Top Countries"
                     :items="$port->security->top_countries"
                     icon="🌍"
+                    description="Geographic distribution of exposed instances. High concentrations may indicate regional hosting preferences or targeted deployment patterns."
                 />
 
                 <x-top-list
                     title="Top Products Detected"
                     :items="$port->security->top_products"
                     icon="📦"
+                    description="Most commonly detected software applications using this port. Helps identify which implementations are widely deployed and potentially targeted by attackers."
+                />
+
+                @if($port->security->top_asns)
+                <x-top-list
+                    title="Top Autonomous Systems (ASNs)"
+                    :items="$port->security->top_asns"
+                    icon="🌐"
+                    description="Network infrastructure providers hosting exposed services. ASN data helps identify hosting patterns and potential network-level security concerns."
+                />
+                @endif
+
+                <x-top-list
+                    title="Top Organizations"
+                    :items="$port->security->top_organizations"
+                    icon="🏢"
+                    description="Organizations with the most exposed instances. Often includes cloud providers, ISPs, and major hosting companies."
                 />
 
                 <x-top-list
                     title="Top Operating Systems"
                     :items="$port->security->top_operating_systems"
                     icon="💻"
-                />
-
-                <x-top-list
-                    title="Top Organizations"
-                    :items="$port->security->top_organizations"
-                    icon="🏢"
+                    description="Operating systems running services on this port. Reveals platform-specific vulnerabilities and deployment environments to consider."
                 />
             </div>
-
-            @if($port->security->top_asns)
-            <div class="mt-6">
-                <x-top-list
-                    title="Top Autonomous Systems (ASNs)"
-                    :items="$port->security->top_asns"
-                    icon="🌐"
-                />
-            </div>
-            @endif
         </div>
         @endif
 
