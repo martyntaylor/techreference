@@ -15,10 +15,22 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->string('action'); // created, updated, deleted, login, logout, etc.
-            $table->string('auditable_type'); // Model class name
-            $table->unsignedBigInteger('auditable_id')->nullable(); // Model ID
-            $table->text('old_values')->nullable(); // JSON of old values
-            $table->text('new_values')->nullable(); // JSON of new values
+
+            // Polymorphic target; both nullable for non-model events (e.g., login_failed)
+            $table->nullableMorphs('auditable');
+
+            // Store structured data as JSON (PostgreSQL uses jsonb, others use json)
+            $connection = Schema::getConnection();
+            $driver = $connection->getDriverName();
+
+            if ($driver === 'pgsql') {
+                $connection->statement('ALTER TABLE audit_logs ADD COLUMN old_values jsonb NULL');
+                $connection->statement('ALTER TABLE audit_logs ADD COLUMN new_values jsonb NULL');
+            } else {
+                $table->json('old_values')->nullable();
+                $table->json('new_values')->nullable();
+            }
+
             $table->ipAddress('ip_address')->nullable();
             $table->text('user_agent')->nullable();
             $table->timestamps();
