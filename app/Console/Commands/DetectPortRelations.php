@@ -311,10 +311,16 @@ class DetectPortRelations extends Command
 
     /**
      * Create a port relation if it doesn't exist.
+     *
+     * @param  int  $portIdentifier1  Port number or port ID (when useDirectIds=true)
+     * @param  int  $portIdentifier2  Port number or port ID (when useDirectIds=true)
+     * @param  string  $relationType  Type of relation (see PortRelation::TYPE_* constants)
+     * @param  string|null  $description  Optional description of the relation
+     * @param  bool  $useDirectIds  If true, identifiers are port IDs; if false, they are port numbers
      */
     private function createRelation(
-        int|string $portIdentifier1,
-        int|string $portIdentifier2,
+        int $portIdentifier1,
+        int $portIdentifier2,
         string $relationType,
         ?string $description = null,
         bool $useDirectIds = false
