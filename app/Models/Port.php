@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property-read array<int,string> $protocols Dynamically set list of protocols for this port number
+ */
 class Port extends Model
 {
     use HasFactory;

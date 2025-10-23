@@ -84,7 +84,14 @@ class PortsHomeController extends Controller
 
         // Use the first port as base and merge protocols
         $primaryPort = $ports->first();
-        $primaryPort->protocols = $ports->pluck('protocol')->map(fn($p) => strtoupper($p))->toArray();
+        $primaryPort->setAttribute(
+            'protocols',
+            $ports->pluck('protocol')
+                ->map(fn ($p) => strtoupper($p))
+                ->unique()
+                ->values()
+                ->all()
+        );
 
         // If there's security data, use the one with the highest risk
         if ($ports->count() > 1) {
