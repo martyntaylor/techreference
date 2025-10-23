@@ -38,8 +38,8 @@ return [
     'nvd' => [
         'endpoint' => env('NVD_API_ENDPOINT', 'https://services.nvd.nist.gov/rest/json/cves/2.0'),
         'api_key' => env('NVD_API_KEY'),
-        'delay_seconds' => env('CVE_UPDATE_DELAY_SECONDS', 6), // 6s for public, 1s with API key
-        'batch_size' => env('CVE_BATCH_SIZE', 5),
+        'delay_seconds' => (int) env('CVE_UPDATE_DELAY_SECONDS', 6), // 6s public, 1s with API key
+        'batch_size' => (int) env('CVE_BATCH_SIZE', 5),
     ],
 
 ];
