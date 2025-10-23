@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Port;
 use App\Models\PortSecurity;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -141,8 +142,10 @@ class UpdateCveData extends Command
 
     /**
      * Get ports to process based on command options.
+     *
+     * @return Collection<int, Port>
      */
-    private function getPortsToProcess()
+    private function getPortsToProcess(): Collection
     {
         $query = Port::query();
 
@@ -173,10 +176,13 @@ class UpdateCveData extends Command
 
     /**
      * Group ports by service name to minimize API calls.
+     *
+     * @param  Collection<int, Port>  $ports
+     * @return Collection<string, Collection<int, Port>>
      */
-    private function groupPortsByService($ports)
+    private function groupPortsByService(Collection $ports): Collection
     {
-        return $ports->groupBy(function ($port) {
+        return $ports->groupBy(function (Port $port) {
             // Normalize service name for grouping
             return strtolower(trim($port->service_name));
         });
@@ -184,6 +190,8 @@ class UpdateCveData extends Command
 
     /**
      * Fetch CVE data for a service from NVD API (with caching).
+     *
+     * @return array{count: int, latest_cve: string|null, latest_date: string|null, critical_count: int, high_count: int, medium_count: int, low_count: int, avg_score: float|null, critical_recent: array<int, array{id: string, published: string, cvss: float, severity: string, description: string}>, weakness_types: array<string, int>}
      */
     private function fetchCveDataForService(string $serviceName): array
     {
@@ -198,6 +206,8 @@ class UpdateCveData extends Command
 
     /**
      * Query NVD API for CVE data.
+     *
+     * @return array{count: int, latest_cve: string|null, latest_date: string|null, critical_count: int, high_count: int, medium_count: int, low_count: int, avg_score: float|null, critical_recent: array<int, array{id: string, published: string, cvss: float, severity: string, description: string}>, weakness_types: array<string, int>}
      */
     private function queryNvdApi(string $serviceName): array
     {
@@ -237,6 +247,13 @@ class UpdateCveData extends Command
                 'count' => 0,
                 'latest_cve' => null,
                 'latest_date' => null,
+                'critical_count' => 0,
+                'high_count' => 0,
+                'medium_count' => 0,
+                'low_count' => 0,
+                'avg_score' => null,
+                'critical_recent' => [],
+                'weakness_types' => [],
             ];
         }
 
@@ -245,6 +262,9 @@ class UpdateCveData extends Command
 
     /**
      * Parse NVD API response and extract relevant CVE data.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{count: int, latest_cve: string|null, latest_date: string|null, critical_count: int, high_count: int, medium_count: int, low_count: int, avg_score: float|null, critical_recent: array<int, array{id: string, published: string, cvss: float, severity: string, description: string}>, weakness_types: array<string, int>}
      */
     private function parseCveResponse(array $data): array
     {
@@ -380,6 +400,9 @@ class UpdateCveData extends Command
 
     /**
      * Extract CVSS score and severity from CVE metrics.
+     *
+     * @param  array<string, mixed>  $cve
+     * @return array{score: float, severity: string}
      */
     private function extractCvssData(array $cve): array
     {
@@ -433,6 +456,8 @@ class UpdateCveData extends Command
 
     /**
      * Update port_security table with CVE data.
+     *
+     * @param  array{count: int, latest_cve: string|null, latest_date: string|null, critical_count: int, high_count: int, medium_count: int, low_count: int, avg_score: float|null, critical_recent: array<int, array{id: string, published: string, cvss: float, severity: string, description: string}>, weakness_types: array<string, int>}  $cveData
      */
     private function updatePortSecurity(Port $port, array $cveData): void
     {
