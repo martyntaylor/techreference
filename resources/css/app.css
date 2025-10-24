@@ -115,6 +115,10 @@ html {
   font-weight: 500;
 }
 
+.prose h3.h3-mt{
+    margin-top: 2.5rem;
+}
+
 .prose h4 {
   font-size: 1.1rem;
   line-height: 1.75rem;

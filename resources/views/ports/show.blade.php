@@ -87,7 +87,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
 
             {{-- Protocol-Specific Information --}}
             @if($ports->count() > 1)
-            <h3 class="mb-4" id="protocol-details">Protocol Details</h3>
+            <h3 class="mb-4 h3-mt">Protocol Details</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 @foreach($ports as $protocolPort)
                 <div class="border border-gray-200 dark:border-gray-700 p-4">
@@ -123,13 +123,13 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         @php $contentTitle = "Using Port " . $port->port_number; @endphp
         <x-content-block :title="$contentTitle ">
             @if($block = $getContentBlock('common_uses'))
-            <h3 class="mb-4" id="common-uses">{{ $block['title'] }}</h3>
+            <h3 class="mb-4">{{ $block['title'] }}</h3>
                 {{ $block['content'] }}
             @endif
 
             {{-- Software Using This Port --}}
             @if($port->software->isNotEmpty())
-            <h3 class="mb-4" id="software">Software Using Port {{ $port->port_number }}</h3>
+            <h3 class="mb-4 h3-mt">Software Using Port {{ $port->port_number }}</h3>
             <ul class="list-none">
                 @foreach($port->software as $software)
                     <li class="mb-4">
@@ -150,216 +150,9 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         </x-content-block>
         @endif
 
-
-
-
-
-
-        <!-- Security Content Block -->
-        @if($block = $getContentBlock('security'))
-            <x-content-block :title="$block['title']" :content="$block['content']" />
-        @endif
-
-        <!-- Security Assessment -->
-        @if($port->security)
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="security-assessment">Security Assessment</h2>
-
-            <!-- Key Metrics -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Internet Exposures</div>
-                    <div class="text-2xl font-bold text-gray-900 dark:text-white">
-                        {{ number_format($port->security->shodan_exposed_count) }}
-                    </div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Shodan detected
-                    </div>
-                </div>
-                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Known CVEs</div>
-                    <div class="text-2xl font-bold text-gray-900 dark:text-white">
-                        {{ number_format($port->security->cve_count) }}
-                    </div>
-                    @if($port->security->latest_cve)
-                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Latest: {{ $port->security->latest_cve }}
-                        </div>
-                    @endif
-                </div>
-                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Avg CVSS Score</div>
-                    <div class="text-2xl font-bold text-gray-900 dark:text-white">
-                        {{ $port->security->cve_avg_score ? number_format($port->security->cve_avg_score, 1) : 'N/A' }}
-                    </div>
-                    @if($port->security->cve_avg_score)
-                        @php
-                            $scoreLabel = match(true) {
-                                $port->security->cve_avg_score >= 9.0 => 'Critical',
-                                $port->security->cve_avg_score >= 7.0 => 'High',
-                                $port->security->cve_avg_score >= 4.0 => 'Medium',
-                                default => 'Low'
-                            };
-                        @endphp
-                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {{ $scoreLabel }} severity
-                        </div>
-                    @endif
-                </div>
-                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Risk Level</div>
-                    <div class="text-2xl font-bold text-gray-900 dark:text-white">
-                        {{ $port->risk_level }}
-                    </div>
-                </div>
-            </div>
-
-            <!-- CVE Severity Breakdown -->
-            @if($port->security->cve_count > 0)
-            <div class="mb-4">
-                <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">CVE Severity Breakdown</h3>
-                <x-cve-severity-badges :security="$port->security" />
-            </div>
-            @endif
-
-            <!-- Security Recommendations -->
-            @if($port->security->security_recommendations)
-                <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4">
-                    <div class="text-sm text-yellow-700 dark:text-yellow-300">
-                        {!! nl2br(e($port->security->security_recommendations)) !!}
-                    </div>
-                </div>
-            @endif
-        </div>
-
-        <!-- Internet Exposure Analysis -->
-        @if($port->security->shodan_exposed_count > 0 && ($port->security->top_countries || $port->security->top_products || $port->security->top_operating_systems || $port->security->top_organizations))
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="internet-exposure">Internet Exposure Analysis</h2>
-            <div class="text-sm text-gray-600 dark:text-gray-400 mb-6 space-y-2">
-                <p>
-                    This data comes from <a href="https://www.shodan.io" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">Shodan</a>, a search engine that continuously scans the internet for publicly accessible services. The statistics below show real-world exposure patterns for port {{ $port->port_number }}, revealing where and how this port is actively being used across the internet.
-                </p>
-                <p>
-                    Understanding these exposure patterns is critical for security planning. If your organization uses this port, you can compare your configuration against common deployments, identify potential risks, and implement appropriate security measures based on real-world attack patterns.
-                </p>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                <x-top-list
-                    title="Top Countries"
-                    :items="$port->security->top_countries"
-                    icon="🌍"
-                    description="Geographic distribution of exposed instances. High concentrations may indicate regional hosting preferences or targeted deployment patterns."
-                />
-
-                <x-top-list
-                    title="Top Products Detected"
-                    :items="$port->security->top_products"
-                    icon="📦"
-                    description="Most commonly detected software applications using this port. Helps identify which implementations are widely deployed and potentially targeted by attackers."
-                />
-
-                @if($port->security->top_asns)
-                <x-top-list
-                    title="Top Autonomous Systems (ASNs)"
-                    :items="$port->security->top_asns"
-                    icon="🌐"
-                    description="Network infrastructure providers hosting exposed services. ASN data helps identify hosting patterns and potential network-level security concerns."
-                />
-                @endif
-
-                <x-top-list
-                    title="Top Organizations"
-                    :items="$port->security->top_organizations"
-                    icon="🏢"
-                    description="Organizations with the most exposed instances. Often includes cloud providers, ISPs, and major hosting companies."
-                />
-
-                <x-top-list
-                    title="Top Operating Systems"
-                    :items="$port->security->top_operating_systems"
-                    icon="💻"
-                    description="Operating systems running services on this port. Reveals platform-specific vulnerabilities and deployment environments to consider."
-                />
-            </div>
-        </div>
-        @endif
-
-        <!-- CVE Details -->
-        @if($port->cves && $port->cves->count() > 0)
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
-                Known Vulnerabilities
-                <span class="text-sm font-normal text-gray-500 dark:text-gray-400">(showing 5 of {{ $port->cves->count() }})</span>
-            </h2>
-
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                Port-specific CVEs from the National Vulnerability Database that explicitly mention port {{ $port->port_number }}.
-            </p>
-
-            <!-- Recent CVEs (Top 5) -->
-            <div class="space-y-3">
-                @foreach($port->cves->take(5) as $cve)
-                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-sm transition">
-                        <div class="flex items-start justify-between mb-2">
-                            <a href="https://nvd.nist.gov/vuln/detail/{{ $cve->cve_id }}"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="font-mono text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline">
-                                {{ $cve->cve_id }}
-                            </a>
-
-                            <div class="flex items-center gap-2">
-                                @if($cve->severity)
-                                    @php
-                                        $severityClass = match(strtoupper($cve->severity)) {
-                                            'CRITICAL' => 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-                                            'HIGH' => 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-                                            'MEDIUM' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-                                            'LOW' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-                                            default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                                        };
-                                    @endphp
-                                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-bold {{ $severityClass }}">
-                                        {{ $cve->severity }}
-                                    </span>
-                                @endif
-                                @if($cve->cvss_score)
-                                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                                        {{ number_format($cve->cvss_score, 1) }} CVSS
-                                    </span>
-                                @endif
-                            </div>
-                        </div>
-
-                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-2">
-                            {{ \Illuminate\Support\Str::limit($cve->description, 200) }}
-                            @if(strlen($cve->description) > 200)
-                                <a href="{{ route('port.vulnerabilities', $port->port_number) }}#{{ $cve->cve_id }}" class="text-blue-600 dark:text-blue-400 hover:underline">
-                                    Read more →
-                                </a>
-                            @endif
-                        </p>
-
-                        <div class="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                            <span>Published: {{ $cve->published_date->format('M d, Y') }}</span>
-                            @if($cve->weakness_types && count($cve->weakness_types) > 0)
-                                <span>CWE: {{ implode(', ', array_slice($cve->weakness_types, 0, 3)) }}</span>
-                            @endif
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-
-            <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <a href="{{ route('port.vulnerabilities', $port->port_number) }}"
-                   class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">
-                    View All {{ $port->cves->count() }} Vulnerabilities →
-                </a>
-            </div>
-        </div>
-        @endif
+        <!-- Best Practices Content Block -->
+        @if($block = $getContentBlock('best_practices'))
+        <x-content-block :title="$block['title']" :content="$block['content']" />
         @endif
 
         <!-- Configuration Guide Content Block -->
@@ -433,10 +226,218 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         </div>
         @endif
 
-        <!-- Best Practices Content Block -->
-        @if($block = $getContentBlock('best_practices'))
-            <x-content-block :title="$block['title']" :content="$block['content']" />
-        @endif
+
+
+
+
+        {{-- Security Content Block --}}
+        <x-content-block title="Security">
+
+            @if($block = $getContentBlock('security'))
+                <h3 class="mb-4">{{ $block['title'] }}</h4>
+                {{ $block['content'] }}
+            @endif
+
+            <!-- Security Assessment -->
+            @if($port->security)
+                <h3 class="mb-4 h3-mt">Security Assessment</h4>
+                <!-- Key Metrics -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Internet Exposures</div>
+                        <div class="text-2xl font-bold text-gray-900 dark:text-white">
+                            {{ number_format($port->security->shodan_exposed_count) }}
+                        </div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Shodan detected
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Known CVEs</div>
+                        <div class="text-2xl font-bold text-gray-900 dark:text-white">
+                            {{ number_format($port->security->cve_count) }}
+                        </div>
+                        @if($port->security->latest_cve)
+                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Latest: {{ $port->security->latest_cve }}
+                            </div>
+                        @endif
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Avg CVSS Score</div>
+                        <div class="text-2xl font-bold text-gray-900 dark:text-white">
+                            {{ $port->security->cve_avg_score ? number_format($port->security->cve_avg_score, 1) : 'N/A' }}
+                        </div>
+                        @if($port->security->cve_avg_score)
+                            @php
+                                $scoreLabel = match(true) {
+                                    $port->security->cve_avg_score >= 9.0 => 'Critical',
+                                    $port->security->cve_avg_score >= 7.0 => 'High',
+                                    $port->security->cve_avg_score >= 4.0 => 'Medium',
+                                    default => 'Low'
+                                };
+                            @endphp
+                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {{ $scoreLabel }} severity
+                            </div>
+                        @endif
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div class="text-sm text-gray-500 dark:text-gray-400">Risk Level</div>
+                        <div class="text-2xl font-bold text-gray-900 dark:text-white">
+                            {{ $port->risk_level }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CVE Severity Breakdown -->
+                @if($port->security->cve_count > 0)
+                <div class="mb-4">
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">CVE Severity Breakdown</h3>
+                    <x-cve-severity-badges :security="$port->security" />
+                </div>
+                @endif
+
+                <!-- Security Recommendations -->
+                @if($port->security->security_recommendations)
+                    <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4">
+                        <div class="text-sm text-yellow-700 dark:text-yellow-300">
+                            {!! nl2br(e($port->security->security_recommendations)) !!}
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Internet Exposure Analysis -->
+                @if($port->security->shodan_exposed_count > 0 && ($port->security->top_countries || $port->security->top_products || $port->security->top_operating_systems || $port->security->top_organizations))
+
+                    <h3 class="mb-4 h3-mt">Internet Exposure Analysis</h3>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mb-6 space-y-2">
+                        <p>
+                            This data comes from <a href="https://www.shodan.io" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">Shodan</a>, a search engine that continuously scans the internet for publicly accessible services. The statistics below show real-world exposure patterns for port {{ $port->port_number }}, revealing where and how this port is actively being used across the internet.
+                        </p>
+                        <p>
+                            Understanding these exposure patterns is critical for security planning. If your organization uses this port, you can compare your configuration against common deployments, identify potential risks, and implement appropriate security measures based on real-world attack patterns.
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <x-top-list
+                            title="Top Countries"
+                            :items="$port->security->top_countries"
+                            icon="🌍"
+                            description="Geographic distribution of exposed instances. High concentrations may indicate regional hosting preferences or targeted deployment patterns."
+                        />
+
+                        <x-top-list
+                            title="Top Products Detected"
+                            :items="$port->security->top_products"
+                            icon="📦"
+                            description="Most commonly detected software applications using this port. Helps identify which implementations are widely deployed and potentially targeted by attackers."
+                        />
+
+                        @if($port->security->top_asns)
+                        <x-top-list
+                            title="Top Autonomous Systems (ASNs)"
+                            :items="$port->security->top_asns"
+                            icon="🌐"
+                            description="Network infrastructure providers hosting exposed services. ASN data helps identify hosting patterns and potential network-level security concerns."
+                        />
+                        @endif
+
+                        <x-top-list
+                            title="Top Organizations"
+                            :items="$port->security->top_organizations"
+                            icon="🏢"
+                            description="Organizations with the most exposed instances. Often includes cloud providers, ISPs, and major hosting companies."
+                        />
+
+                        <x-top-list
+                            title="Top Operating Systems"
+                            :items="$port->security->top_operating_systems"
+                            icon="💻"
+                            description="Operating systems running services on this port. Reveals platform-specific vulnerabilities and deployment environments to consider."
+                        />
+                    </div>
+                @endif
+            @endif
+
+            <!-- CVE Details -->
+            @if($port->cves && $port->cves->count() > 0)
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+                <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                    Known Vulnerabilities
+                    <span class="text-sm font-normal text-gray-500 dark:text-gray-400">(showing 5 of {{ $port->cves->count() }})</span>
+                </h2>
+
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                    Port-specific CVEs from the National Vulnerability Database that explicitly mention port {{ $port->port_number }}.
+                </p>
+
+                <!-- Recent CVEs (Top 5) -->
+                <div class="space-y-3">
+                    @foreach($port->cves->take(5) as $cve)
+                        <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-sm transition">
+                            <div class="flex items-start justify-between mb-2">
+                                <a href="https://nvd.nist.gov/vuln/detail/{{ $cve->cve_id }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="font-mono text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                                    {{ $cve->cve_id }}
+                                </a>
+
+                                <div class="flex items-center gap-2">
+                                    @if($cve->severity)
+                                        @php
+                                            $severityClass = match(strtoupper($cve->severity)) {
+                                                'CRITICAL' => 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+                                                'HIGH' => 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+                                                'MEDIUM' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+                                                'LOW' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+                                                default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                            };
+                                        @endphp
+                                        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-bold {{ $severityClass }}">
+                                            {{ $cve->severity }}
+                                        </span>
+                                    @endif
+                                    @if($cve->cvss_score)
+                                        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                            {{ number_format($cve->cvss_score, 1) }} CVSS
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <p class="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                                {{ \Illuminate\Support\Str::limit($cve->description, 200) }}
+                                @if(strlen($cve->description) > 200)
+                                    <a href="{{ route('port.vulnerabilities', $port->port_number) }}#{{ $cve->cve_id }}" class="text-blue-600 dark:text-blue-400 hover:underline">
+                                        Read more →
+                                    </a>
+                                @endif
+                            </p>
+
+                            <div class="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                                <span>Published: {{ $cve->published_date->format('M d, Y') }}</span>
+                                @if($cve->weakness_types && count($cve->weakness_types) > 0)
+                                    <span>CWE: {{ implode(', ', array_slice($cve->weakness_types, 0, 3)) }}</span>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <a href="{{ route('port.vulnerabilities', $port->port_number) }}"
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition">
+                        View All {{ $port->cves->count() }} Vulnerabilities →
+                    </a>
+                </div>
+            </div>
+            @endif
+
+        </x-content-block>
+
 
 
 
@@ -499,9 +500,9 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
                 @endphp
         
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4" id="related-ports">
                         Related Ports
-                    </h3>
+                    </h2>
         
                     <!-- Relation Type Tabs -->
                     <div x-data="{ activeTab: '{{ $defaultTab }}' }" class="space-y-4">
