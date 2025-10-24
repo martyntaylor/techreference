@@ -24,21 +24,18 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
 
 <x-layouts.app :pageTitle="$pageTitle">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Breadcrumbs -->
+        
+        {{--  Breadcrumbs --}}
         <x-breadcrumbs :items="$breadcrumbs" />
 
-        <!-- Page Header -->
-        <div class="mb-8">
-            <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                Port {{ $port->port_number }}
-                @if($port->service_name)
-                    - {{ $port->service_name }}
-                @endif
-            </h1>
-            <p class="text-lg text-gray-600 dark:text-gray-400">
-                Available on: {{ $protocolsList }}
-            </p>
-        </div>
+        {{-- Page Header --}}
+        <h1 class="mb-8">
+            Port {{ $port->port_number }}
+            @if($port->service_name)
+                - {{ $port->service_name }}
+            @endif
+        </h1>
+
 
         <!-- Quick Reference -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">

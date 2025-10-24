@@ -12,13 +12,12 @@
         ]" />
 
         <!-- Hero Section -->
-        <div class="text-center mb-12">
-            <h1 class="text-5xl font-bold text-gray-900 dark:text-white mb-4">
+        <div class="text-center">
+            <h1 class="mb-8">
                 Network Ports Reference
             </h1>
-            <p class="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-                Network ports are virtual endpoints in an operating system that help identify specific processes or network services.
-                They enable multiple services to run simultaneously on a single IP address, with each service listening on its designated port number.
+            <p class="max-w-3xl mx-auto">
+                Welcome to the internet’s most detailed, searchable, and actionable directory of network ports. Whether you’re a <span class="font-bold">DevOps engineer securing firewalls</span>, a <span class="font-bold">developer debugging a connection</span>, or a <span class="font-bold">security analyst hunting exposed services</span>, this hub gives you everything in one place.
             </p>
         </div>
 

@@ -9,22 +9,16 @@ $allItems = array_merge(
 @endphp
 
 @if(count($allItems) > 1)
-<nav aria-label="Breadcrumb" class="mb-6">
-    <ol class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+
+    <nav aria-label="Breadcrumb" class="flex items-center gap-x-2 text-sm/6 mb-8">
         @foreach($allItems as $item)
-            <li class="flex items-center">
                 @if(!$loop->first)
-                    <!-- Separator -->
-                    <svg class="w-4 h-4 flex-shrink-0 mx-2" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
-                    </svg>
+                    <span class="text-gray-950/25 dark:text-white/25">/</span>
                 @endif
 
                 @if($loop->last)
                     <!-- Last item (current page) - no link -->
-                    <span class="font-medium text-gray-900 dark:text-white" aria-current="page">
-                        {{ $item['name'] }}
-                    </span>
+                    <span class="min-w-0 truncate text-gray-950 last:text-gray-600 dark:last:text-gray-400"  aria-current="page">{{ $item['name'] }}</span>
                 @elseif($loop->first)
                     <!-- Home icon -->
                     <a href="{{ $item['url'] }}" class="hover:text-blue-600 dark:hover:text-blue-400 transition" aria-label="Home">
@@ -35,14 +29,10 @@ $allItems = array_merge(
                     </a>
                 @else
                     <!-- Linked items -->
-                    <a href="{{ $item['url'] }}" class="hover:text-blue-600 dark:hover:text-blue-400 transition">
-                        {{ $item['name'] }}
-                    </a>
+                    <a href="{{ $item['url'] }}" class="min-w-0 shrink-0 text-gray-950 dark:text-white">{{ $item['name'] }}</a>
                 @endif
-            </li>
         @endforeach
-    </ol>
-</nav>
+    </nav>
 
 <!-- Schema.org BreadcrumbList -->
 <x-schema-json
