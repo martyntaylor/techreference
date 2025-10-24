@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Ports;
 
 use App\Http\Controllers\Controller;
 use App\Models\Port;
+use App\Models\PortPage;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -48,26 +49,26 @@ class PortController extends Controller
             'categories',
         ]);
 
-        // Increment view count asynchronously for all protocol variants
-        if (! $request->is('*/preview')) {
-            $portIds = $ports->pluck('id')->toArray();
-            dispatch(function () use ($portIds) {
-                // Use query builder to avoid triggering model events
-                Port::whereIn('id', $portIds)->increment('view_count');
-            })->afterResponse();
-        }
-
         // Get the first port for general metadata (port number is the same across protocols)
         $primaryPort = $ports->first();
+
+        // Increment view count for all protocol variants
+        if (! $request->is('*/preview')) {
+            Port::where('port_number', $primaryPort->port_number)->increment('view_count');
+        }
 
         // Filter related ports to exclude same port number (different protocols shown separately)
         $filteredRelatedPorts = $primaryPort->relatedPorts->filter(
             fn($relatedPort) => $relatedPort->port_number !== $primaryPort->port_number
         );
 
+        // Load port page content if available
+        $portPage = PortPage::where('port_number', $primaryPort->port_number)->first();
+
         return view('ports.show', [
             'ports' => $ports, // Collection of all protocols
             'port' => $primaryPort, // Primary port for metadata
+            'portPage' => $portPage, // Port page content (may be null)
             'relatedPorts' => $filteredRelatedPorts, // Related ports (excluding protocol variants)
             'pageTitle' => sprintf('Port %d%s',
                 $primaryPort->port_number,

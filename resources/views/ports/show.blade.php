@@ -1,8 +1,20 @@
 @php
 // $port is the primary port for metadata, $ports is the collection of all protocols
 $protocolsList = $ports->pluck('protocol')->join(', ');
-$pageTitle = "Port {$port->port_number}" . ($port->service_name ? " - {$port->service_name}" : '');
-$metaDescription = $port->description ?: "Technical reference for port {$port->port_number} ({$protocolsList}). Learn about services, security considerations, configuration examples, and common issues.";
+
+// Use PortPage data with intelligent fallbacks
+$pageTitle = $portPage?->page_title ?? "Port {$port->port_number}" . ($port->service_name ? " - {$port->service_name}" : '');
+$metaDescription = $portPage?->meta_description ?? ($port->description ?: "Technical reference for port {$port->port_number} ({$protocolsList}). Learn about services, security considerations, configuration examples, and common issues.");
+$heading = $portPage?->heading ?? "Port {$port->port_number}" . ($port->service_name ? " - {$port->service_name}" : '');
+
+// Helper function to get a specific content block by type
+$getContentBlock = function($type) use ($portPage) {
+    if (!$portPage || !$portPage->content_blocks) {
+        return null;
+    }
+    return collect($portPage->content_blocks)->firstWhere('type', $type);
+};
+
 $breadcrumbs = [
     ['name' => 'Ports', 'url' => route('ports.index')]
 ];
@@ -30,10 +42,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
 
         {{-- Page Header --}}
         <h1 class="mb-8">
-            Port {{ $port->port_number }}
-            @if($port->service_name)
-                - {{ $port->service_name }}
-            @endif
+            {{ $heading }}
         </h1>
 
 
@@ -74,6 +83,16 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
             @endif
         </div>
 
+        <!-- Overview Content Block -->
+        @if($block = $getContentBlock('overview'))
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ $block['title'] }}</h2>
+            <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
+                {!! nl2br(e($block['content'])) !!}
+            </div>
+        </div>
+        @endif
+
         <!-- Protocol-Specific Information -->
         @if($ports->count() > 1)
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
@@ -108,6 +127,16 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         </div>
         @endif
 
+        <!-- Common Uses Content Block -->
+        @if($block = $getContentBlock('common_uses'))
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ $block['title'] }}</h2>
+            <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
+                {!! nl2br(e($block['content'])) !!}
+            </div>
+        </div>
+        @endif
+
         <!-- Software Using This Port -->
         @if($port->software->isNotEmpty())
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
@@ -124,6 +153,16 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
                         @endif
                     </div>
                 @endforeach
+            </div>
+        </div>
+        @endif
+
+        <!-- Security Content Block -->
+        @if($block = $getContentBlock('security'))
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ $block['title'] }}</h2>
+            <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
+                {!! nl2br(e($block['content'])) !!}
             </div>
         </div>
         @endif
@@ -330,6 +369,16 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         @endif
         @endif
 
+        <!-- Configuration Guide Content Block -->
+        @if($block = $getContentBlock('configuration'))
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ $block['title'] }}</h2>
+            <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
+                {!! nl2br(e($block['content'])) !!}
+            </div>
+        </div>
+        @endif
+
         <!-- Configuration Examples -->
         @if($port->configs->isNotEmpty())
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
@@ -363,6 +412,16 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         </div>
         @endif
 
+        <!-- Troubleshooting Content Block -->
+        @if($block = $getContentBlock('troubleshooting'))
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ $block['title'] }}</h2>
+            <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
+                {!! nl2br(e($block['content'])) !!}
+            </div>
+        </div>
+        @endif
+
         <!-- Common Issues -->
         @if($port->verifiedIssues->isNotEmpty())
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
@@ -387,6 +446,16 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
                         </div>
                     </div>
                 @endforeach
+            </div>
+        </div>
+        @endif
+
+        <!-- Best Practices Content Block -->
+        @if($block = $getContentBlock('best_practices'))
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ $block['title'] }}</h2>
+            <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
+                {!! nl2br(e($block['content'])) !!}
             </div>
         </div>
         @endif
@@ -502,6 +571,42 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         </div>
         @endif
 
+        <!-- FAQs from PortPage -->
+        @if($portPage && $portPage->faqs)
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Frequently Asked Questions</h2>
+            <div class="space-y-6">
+                @foreach(collect($portPage->faqs)->sortBy('order') as $faq)
+                    <div class="border-l-4 border-blue-500 pl-4">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{{ $faq['question'] }}</h3>
+                        <p class="text-gray-700 dark:text-gray-300">{{ $faq['answer'] }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        <!-- Videos from PortPage -->
+        @if($portPage && $portPage->video_urls)
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Video Resources</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                @foreach($portPage->video_urls as $video)
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                        <a href="{{ $video['url'] }}" target="_blank" rel="noopener noreferrer" class="block group">
+                            <h3 class="font-semibold text-blue-600 dark:text-blue-400 group-hover:underline mb-2">
+                                {{ $video['title'] }}
+                            </h3>
+                            @if(isset($video['description']))
+                                <p class="text-sm text-gray-600 dark:text-gray-400">{{ $video['description'] }}</p>
+                            @endif
+                        </a>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
         <!-- Data Sources -->
         <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
             <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Data Sources</h3>
@@ -551,15 +656,37 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         />
     @endforeach
 
-    @if($port->verifiedIssues->isNotEmpty())
-        <!-- FAQ Schema for Common Issues -->
+    @php
+        // Combine FAQs from both PortPage and verified issues for schema
+        $schemaFaqs = collect();
+
+        // Add PortPage FAQs first (higher priority)
+        if ($portPage && $portPage->faqs) {
+            $schemaFaqs = $schemaFaqs->concat(
+                collect($portPage->faqs)->map(fn($faq) => [
+                    'question' => $faq['question'],
+                    'answer' => $faq['answer']
+                ])
+            );
+        }
+
+        // Add verified issues as FAQs
+        if ($port->verifiedIssues->isNotEmpty()) {
+            $schemaFaqs = $schemaFaqs->concat(
+                $port->verifiedIssues->map(fn($issue) => [
+                    'question' => $issue->issue_title,
+                    'answer' => strip_tags($issue->solution)
+                ])
+            );
+        }
+    @endphp
+
+    @if($schemaFaqs->isNotEmpty())
+        <!-- FAQ Schema -->
         <x-schema-json
             type="FAQPage"
             :data="[
-                'questions' => $port->verifiedIssues->map(fn($issue) => [
-                    'question' => $issue->issue_title,
-                    'answer' => strip_tags($issue->solution)
-                ])->toArray()
+                'questions' => $schemaFaqs->toArray()
             ]"
         />
     @endif
