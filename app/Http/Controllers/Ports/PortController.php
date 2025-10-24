@@ -52,18 +52,24 @@ class PortController extends Controller
         // Get the first port for general metadata (port number is the same across protocols)
         $primaryPort = $ports->first();
 
-        // Increment view count for all protocol variants
-        if (! $request->is('*/preview')) {
-            Port::where('port_number', $primaryPort->port_number)->increment('view_count');
-        }
-
         // Filter related ports to exclude same port number (different protocols shown separately)
         $filteredRelatedPorts = $primaryPort->relatedPorts->filter(
             fn($relatedPort) => $relatedPort->port_number !== $primaryPort->port_number
         );
 
-        // Load port page content if available
-        $portPage = PortPage::where('port_number', $primaryPort->port_number)->first();
+        // Load or create port page content
+        $portPage = PortPage::firstOrCreate(
+            ['port_number' => $primaryPort->port_number],
+            [
+                'page_title' => "Port {$primaryPort->port_number}" . ($primaryPort->service_name ? " - {$primaryPort->service_name}" : ''),
+                'heading' => "Port {$primaryPort->port_number}" . ($primaryPort->service_name ? " - {$primaryPort->service_name}" : ''),
+            ]
+        );
+
+        // Increment view count on the port page
+        if (! $request->is('*/preview')) {
+            $portPage->incrementViewCount();
+        }
 
         return view('ports.show', [
             'ports' => $ports, // Collection of all protocols

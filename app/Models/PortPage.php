@@ -15,6 +15,7 @@ class PortPage extends Model
         'content_blocks',
         'faqs',
         'video_urls',
+        'view_count',
     ];
 
     protected $casts = [
@@ -22,7 +23,16 @@ class PortPage extends Model
         'content_blocks' => 'array',
         'faqs' => 'array',
         'video_urls' => 'array',
+        'view_count' => 'integer',
     ];
+
+    /**
+     * Increment the view count for this port page.
+     */
+    public function incrementViewCount(): void
+    {
+        $this->increment('view_count');
+    }
 
     /**
      * Get all port protocol entries for this port number.

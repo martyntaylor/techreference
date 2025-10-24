@@ -27,13 +27,14 @@ class PortsHomeController extends Controller
         // Get top 5 ports for each category (grouped by port number to avoid protocol duplicates)
         $categoriesWithPorts = Cache::remember('ports:home:top-ports', 3600, function () use ($categories) {
             return $categories->map(function ($category) {
-                // Get top port numbers by summing view counts across protocols
+                // Get top port numbers by joining with port_pages for view counts
                 $topPortNumbers = $category->ports()
-                    ->selectRaw('port_number')
-                    ->groupBy('port_number')
-                    ->orderByRaw('SUM(view_count) DESC')
+                    ->join('port_pages', 'ports.port_number', '=', 'port_pages.port_number')
+                    ->select('ports.port_number', 'port_pages.view_count')
+                    ->groupBy('ports.port_number', 'port_pages.view_count')
+                    ->orderBy('port_pages.view_count', 'DESC')
                     ->limit(5)
-                    ->pluck('port_number');
+                    ->pluck('ports.port_number');
 
                 // Fetch all protocol variants for each port number and merge them
                 $topPorts = collect($topPortNumbers)->map(function ($portNumber) {
@@ -47,13 +48,14 @@ class PortsHomeController extends Controller
             });
         });
 
-        // Get overall most popular ports (grouped by port number, summing view counts across protocols)
+        // Get overall most popular ports (grouped by port number, using port_pages view counts)
         $popularPorts = Cache::remember('ports:home:popular', 3600, function () {
-            $topPortNumbers = Port::selectRaw('port_number')
-                ->groupBy('port_number')
-                ->orderByRaw('SUM(view_count) DESC')
+            $topPortNumbers = Port::join('port_pages', 'ports.port_number', '=', 'port_pages.port_number')
+                ->select('ports.port_number', 'port_pages.view_count')
+                ->groupBy('ports.port_number', 'port_pages.view_count')
+                ->orderBy('port_pages.view_count', 'DESC')
                 ->limit(10)
-                ->pluck('port_number');
+                ->pluck('ports.port_number');
 
             // Fetch all protocol variants for each port number and merge them
             return collect($topPortNumbers)->map(function ($portNumber) {

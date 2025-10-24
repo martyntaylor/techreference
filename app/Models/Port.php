@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property-read array<int,string> $protocols Dynamically set list of protocols for this port number
@@ -35,7 +36,6 @@ class Port extends Model
         'encrypted_default',
         'common_uses',
         'historical_context',
-        'view_count',
         'search_vector',
     ];
 
@@ -49,7 +49,6 @@ class Port extends Model
         'iana_official' => 'boolean',
         'encrypted_default' => 'boolean',
         'iana_updated_at' => 'datetime',
-        'view_count' => 'integer',
     ];
 
     /**
@@ -187,19 +186,14 @@ class Port extends Model
     }
 
     /**
-     * Scope a query to get popular ports.
+     * Scope a query to get popular ports (based on PortPage view counts).
      */
     public function scopePopular($query, int $limit = 10)
     {
-        return $query->orderBy('view_count', 'desc')->limit($limit);
-    }
-
-    /**
-     * Increment the view count for this port.
-     */
-    public function incrementViewCount(): void
-    {
-        $this->increment('view_count');
+        return $query->select('ports.*')
+            ->join('port_pages', 'ports.port_number', '=', 'port_pages.port_number')
+            ->orderBy('port_pages.view_count', 'desc')
+            ->limit($limit);
     }
 
     /**
@@ -312,5 +306,13 @@ class Port extends Model
             ->withPivot('relevance_score')
             ->withTimestamps()
             ->orderBy('published_date', 'desc');
+    }
+
+    /**
+     * Get the port page for this port number.
+     */
+    public function portPage(): HasOne
+    {
+        return $this->hasOne(PortPage::class, 'port_number', 'port_number');
     }
 }
