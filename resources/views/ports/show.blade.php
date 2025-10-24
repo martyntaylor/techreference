@@ -41,24 +41,25 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
     </x-slot>
 
     {{-- Main Content --}}
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+        
         {{-- Page Header --}}
-        <h1 class="mb-8">
+        <h1 class="mb-20">
             {{ $heading }}
         </h1>
-        
 
-        <!-- Quick Reference -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="quick-reference">Quick Reference</h2>
-            <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {{-- Overview --}}
+        @if($block = $getContentBlock('overview'))
+            <x-content-block :title="$block['title']" :content="$block['content']" />
+        @endif
+
+
+        {{-- Quick Reference --}}
+        <x-content-block title="Quick Reference">
+            <dl class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Port Number</dt>
                     <dd class="text-lg text-gray-900 dark:text-white">{{ $port->port_number }}</dd>
-                </div>
-                <div>
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Protocols</dt>
-                    <dd class="text-lg text-gray-900 dark:text-white">{{ $protocolsList }}</dd>
                 </div>
                 @if($port->service_name)
                 <div>
@@ -83,22 +84,15 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
                     <dd class="text-gray-700 dark:text-gray-300">{{ $port->description }}</dd>
                 </div>
             @endif
-        </div>
 
-        <!-- Overview Content Block -->
-        @if($block = $getContentBlock('overview'))
-            <x-content-block :title="$block['title']" :content="$block['content']" />
-        @endif
-
-        <!-- Protocol-Specific Information -->
-        @if($ports->count() > 1)
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="protocol-details">Protocol Details</h2>
-            <div class="space-y-4">
+            {{-- Protocol-Specific Information --}}
+            @if($ports->count() > 1)
+            <h3 class="mb-4" id="protocol-details">Protocol Details</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 @foreach($ports as $protocolPort)
-                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ $protocolPort->protocol }}</h3>
+                <div class="border border-gray-200 dark:border-gray-700 p-4">
+                    <div class="flex relative items-center justify-between mb-2">
+                        <h4>{{ $protocolPort->protocol }}</h4>
                         @if($protocolPort->risk_level)
                             <x-security-badge :level="$protocolPort->risk_level" />
                         @endif
@@ -106,48 +100,60 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
                     @if($protocolPort->description && $protocolPort->description !== $port->description)
                         <p class="text-sm text-gray-700 dark:text-gray-300 mb-2">{{ $protocolPort->description }}</p>
                     @endif
-                    <dl class="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                            <dt class="text-gray-500 dark:text-gray-400">Encrypted by Default</dt>
-                            <dd class="text-gray-900 dark:text-white">{{ $protocolPort->encrypted_default ? 'Yes' : 'No' }}</dd>
-                        </div>
-                        @if($protocolPort->common_uses)
-                        <div>
-                            <dt class="text-gray-500 dark:text-gray-400">Common Uses</dt>
-                            <dd class="text-gray-900 dark:text-white">{{ \Illuminate\Support\Str::limit($protocolPort->common_uses, 50) }}</dd>
-                        </div>
-                        @endif
-                    </dl>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Encrypted by Default</dt>
+                        <dd class="text-lg text-gray-900 dark:text-white">{{ $protocolPort->encrypted_default ? 'Yes' : 'No' }}</dd>
+                    </div>
+                    @if($protocolPort->common_uses)
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Common Uses</dt>
+                        <dd class="text-lg text-gray-900 dark:text-white">{{ \Illuminate\Support\Str::limit($protocolPort->common_uses, 50) }}</dd>
+                    </div>
+                    @endif
                 </div>
                 @endforeach
             </div>
-        </div>
-        @endif
+            @endif
 
-        <!-- Common Uses Content Block -->
-        @if($block = $getContentBlock('common_uses'))
-            <x-content-block :title="$block['title']" :content="$block['content']" />
-        @endif
+        </x-content-block>
+        
 
-        <!-- Software Using This Port -->
-        @if($port->software->isNotEmpty())
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="software">Software Using This Port</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {{-- Common Uses Content Block --}}
+        @if($port->software->isNotEmpty() || $getContentBlock('common_uses'))
+        @php $contentTitle = "Using Port " . $port->port_number; @endphp
+        <x-content-block :title="$contentTitle ">
+            @if($block = $getContentBlock('common_uses'))
+            <h3 class="mb-4" id="common-uses">{{ $block['title'] }}</h3>
+                {{ $block['content'] }}
+            @endif
+
+            {{-- Software Using This Port --}}
+            @if($port->software->isNotEmpty())
+            <h3 class="mb-4" id="software">Software Using Port {{ $port->port_number }}</h3>
+            <ul class="list-none">
                 @foreach($port->software as $software)
-                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                        <h3 class="font-semibold text-gray-900 dark:text-white">{{ $software->name }}</h3>
+                    <li class="mb-4">
+                        <h4>{{ $software->name }}</h4>
                         @if($software->category)
-                            <p class="text-sm text-gray-500 dark:text-gray-400">{{ $software->category }}</p>
+                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $software->category }}</p>
                         @endif
                         @if($software->description)
-                            <p class="text-sm text-gray-700 dark:text-gray-300 mt-2">{{ $software->description }}</p>
+                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $software->description }}</p>
                         @endif
-                    </div>
+                    </li>
                 @endforeach
             </div>
-        </div>
+            @endif
+
+
+
+        </x-content-block>
         @endif
+
+
+
+
+
 
         <!-- Security Content Block -->
         @if($block = $getContentBlock('security'))
@@ -432,116 +438,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
             <x-content-block :title="$block['title']" :content="$block['content']" />
         @endif
 
-        <!-- Related Ports -->
-        @if($relatedPorts->isNotEmpty())
-        @php
-            // Group related ports by relation type
-            $portsByRelationType = $relatedPorts->groupBy(fn($port) => $port->pivot->relation_type ?? 'associated_with');
 
-            // Define relation type order and labels
-            $relationTypes = [
-                'secure_version' => ['label' => 'Secure Version', 'color' => 'green'],
-                'alternative' => ['label' => 'Alternative', 'color' => 'purple'],
-                'complementary' => ['label' => 'Complementary', 'color' => 'teal'],
-                'part_of_suite' => ['label' => 'Part of Suite', 'color' => 'blue'],
-                'deprecated_by' => ['label' => 'Deprecated By', 'color' => 'orange'],
-                'conflicts_with' => ['label' => 'Conflicts With', 'color' => 'red'],
-                'associated_with' => ['label' => 'Associated With', 'color' => 'gray'],
-            ];
-
-            // Determine default tab (first available in priority order)
-            $defaultTab = collect(['secure_version', 'alternative', 'complementary', 'part_of_suite', 'deprecated_by', 'conflicts_with', 'associated_with'])
-                ->first(fn($type) => $portsByRelationType->has($type));
-        @endphp
-
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                Related Ports
-            </h3>
-
-            <!-- Relation Type Tabs -->
-            <div x-data="{ activeTab: '{{ $defaultTab }}' }" class="space-y-4">
-                <!-- Tab Headers -->
-                <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-2">
-                    @foreach($relationTypes as $type => $config)
-                        @if($portsByRelationType->has($type))
-                            @php
-                                $count = $portsByRelationType->get($type)->count();
-                                $colorClass = match($config['color']) {
-                                    'green' => 'border-green-500 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30',
-                                    'purple' => 'border-purple-500 text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30',
-                                    'teal' => 'border-teal-500 text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30',
-                                    'blue' => 'border-blue-500 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30',
-                                    'orange' => 'border-orange-500 text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30',
-                                    'red' => 'border-red-500 text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30',
-                                    default => 'border-gray-500 text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700',
-                                };
-                                $inactiveClass = 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-gray-600';
-                            @endphp
-                            <button
-                                @click="activeTab = '{{ $type }}'"
-                                :class="activeTab === '{{ $type }}' ? '{{ $colorClass }}' : '{{ $inactiveClass }}'"
-                                class="px-4 py-2 text-sm font-medium border-b-2 transition-colors focus:outline-none"
-                            >
-                                {{ $config['label'] }}
-                                <span class="ml-1.5 px-2 py-0.5 rounded-full bg-white dark:bg-gray-800 text-xs font-semibold">
-                                    {{ $count }}
-                                </span>
-                            </button>
-                        @endif
-                    @endforeach
-                </div>
-
-                <!-- Tab Content -->
-                @foreach($relationTypes as $type => $config)
-                    @if($portsByRelationType->has($type))
-                        <div x-show="activeTab === '{{ $type }}'" x-cloak class="space-y-3">
-                            @foreach($portsByRelationType->get($type) as $relatedPort)
-                                <a
-                                    href="{{ route('port.show', $relatedPort->port_number) }}"
-                                    class="block p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-md transition group"
-                                >
-                                    <div class="flex items-start justify-between">
-                                        <div class="flex-1">
-                                            <div class="flex items-center gap-2 mb-1">
-                                                <span class="text-lg font-bold text-blue-600 dark:text-blue-400">
-                                                    Port {{ $relatedPort->port_number }}
-                                                </span>
-                                                <span class="text-sm text-gray-500 dark:text-gray-400">
-                                                    {{ $relatedPort->protocol }}
-                                                </span>
-                                                @if($relatedPort->risk_level)
-                                                    <x-security-badge :level="$relatedPort->risk_level" size="sm" />
-                                                @endif
-                                            </div>
-
-                                            <h4 class="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
-                                                {{ $relatedPort->service_name }}
-                                            </h4>
-
-                                            @if($relatedPort->pivot->description)
-                                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 italic">
-                                                    {{ $relatedPort->pivot->description }}
-                                                </p>
-                                            @elseif($relatedPort->description)
-                                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                                                    {{ \Illuminate\Support\Str::limit($relatedPort->description, 120) }}
-                                                </p>
-                                            @endif
-                                        </div>
-
-                                        <svg class="w-5 h-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition flex-shrink-0 ml-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    </div>
-                                </a>
-                            @endforeach
-                        </div>
-                    @endif
-                @endforeach
-            </div>
-        </div>
-        @endif
 
         <!-- FAQs from PortPage -->
         @if($portPage && $portPage->faqs)
@@ -579,7 +476,118 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         </div>
         @endif
 
-        <!-- Data Sources -->
+                <!-- Related Ports -->
+                @if($relatedPorts->isNotEmpty())
+                @php
+                    // Group related ports by relation type
+                    $portsByRelationType = $relatedPorts->groupBy(fn($port) => $port->pivot->relation_type ?? 'associated_with');
+        
+                    // Define relation type order and labels
+                    $relationTypes = [
+                        'secure_version' => ['label' => 'Secure Version', 'color' => 'green'],
+                        'alternative' => ['label' => 'Alternative', 'color' => 'purple'],
+                        'complementary' => ['label' => 'Complementary', 'color' => 'teal'],
+                        'part_of_suite' => ['label' => 'Part of Suite', 'color' => 'blue'],
+                        'deprecated_by' => ['label' => 'Deprecated By', 'color' => 'orange'],
+                        'conflicts_with' => ['label' => 'Conflicts With', 'color' => 'red'],
+                        'associated_with' => ['label' => 'Associated With', 'color' => 'gray'],
+                    ];
+        
+                    // Determine default tab (first available in priority order)
+                    $defaultTab = collect(['secure_version', 'alternative', 'complementary', 'part_of_suite', 'deprecated_by', 'conflicts_with', 'associated_with'])
+                        ->first(fn($type) => $portsByRelationType->has($type));
+                @endphp
+        
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                        Related Ports
+                    </h3>
+        
+                    <!-- Relation Type Tabs -->
+                    <div x-data="{ activeTab: '{{ $defaultTab }}' }" class="space-y-4">
+                        <!-- Tab Headers -->
+                        <div class="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-2">
+                            @foreach($relationTypes as $type => $config)
+                                @if($portsByRelationType->has($type))
+                                    @php
+                                        $count = $portsByRelationType->get($type)->count();
+                                        $colorClass = match($config['color']) {
+                                            'green' => 'border-green-500 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30',
+                                            'purple' => 'border-purple-500 text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30',
+                                            'teal' => 'border-teal-500 text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30',
+                                            'blue' => 'border-blue-500 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30',
+                                            'orange' => 'border-orange-500 text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30',
+                                            'red' => 'border-red-500 text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30',
+                                            default => 'border-gray-500 text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700',
+                                        };
+                                        $inactiveClass = 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-gray-600';
+                                    @endphp
+                                    <button
+                                        @click="activeTab = '{{ $type }}'"
+                                        :class="activeTab === '{{ $type }}' ? '{{ $colorClass }}' : '{{ $inactiveClass }}'"
+                                        class="px-4 py-2 text-sm font-medium border-b-2 transition-colors focus:outline-none"
+                                    >
+                                        {{ $config['label'] }}
+                                        <span class="ml-1.5 px-2 py-0.5 rounded-full bg-white dark:bg-gray-800 text-xs font-semibold">
+                                            {{ $count }}
+                                        </span>
+                                    </button>
+                                @endif
+                            @endforeach
+                        </div>
+        
+                        <!-- Tab Content -->
+                        @foreach($relationTypes as $type => $config)
+                            @if($portsByRelationType->has($type))
+                                <div x-show="activeTab === '{{ $type }}'" x-cloak class="space-y-3">
+                                    @foreach($portsByRelationType->get($type) as $relatedPort)
+                                        <a
+                                            href="{{ route('port.show', $relatedPort->port_number) }}"
+                                            class="block p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-md transition group"
+                                        >
+                                            <div class="flex items-start justify-between">
+                                                <div class="flex-1">
+                                                    <div class="flex items-center gap-2 mb-1">
+                                                        <span class="text-lg font-bold text-blue-600 dark:text-blue-400">
+                                                            Port {{ $relatedPort->port_number }}
+                                                        </span>
+                                                        <span class="text-sm text-gray-500 dark:text-gray-400">
+                                                            {{ $relatedPort->protocol }}
+                                                        </span>
+                                                        @if($relatedPort->risk_level)
+                                                            <x-security-badge :level="$relatedPort->risk_level" size="sm" />
+                                                        @endif
+                                                    </div>
+        
+                                                    <h4 class="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+                                                        {{ $relatedPort->service_name }}
+                                                    </h4>
+        
+                                                    @if($relatedPort->pivot->description)
+                                                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 italic">
+                                                            {{ $relatedPort->pivot->description }}
+                                                        </p>
+                                                    @elseif($relatedPort->description)
+                                                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                                                            {{ \Illuminate\Support\Str::limit($relatedPort->description, 120) }}
+                                                        </p>
+                                                    @endif
+                                                </div>
+        
+                                                <svg class="w-5 h-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition flex-shrink-0 ml-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </div>
+                                        </a>
+                                    @endforeach
+                                </div>
+                            @endif
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
+        {{-- Data Sources --}}
         @php
             ob_start();
         @endphp
@@ -616,7 +624,9 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         @php
             $dataSourcesContent = ob_get_clean();
         @endphp
-        <x-content-block title="Data Sources" :content="$dataSourcesContent" :escape="false" />
+        <x-content-block title="Data Sources">
+            {!! $dataSourcesContent !!}
+        </x-content-block>
 
 
 

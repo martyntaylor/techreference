@@ -113,7 +113,13 @@ html {
   line-height: 1.75rem;
   letter-spacing: -0.025em;
   font-weight: 500;
-  margin-top: 2.5rem;
+}
+
+.prose h4 {
+  font-size: 1.1rem;
+  line-height: 1.75rem;
+  letter-spacing: -0.025em;
+  font-weight: 500;
 }
 
 .prose a {
@@ -153,12 +159,12 @@ html {
 .dark .prose ol li::marker {
   color: rgb(156 163 175);
 }
-
+/*
 .prose ul {
   list-style-type: disc;
   margin-left: 1.5rem;
 }
-
+*/
 .prose ul li {
   padding-left: 0.625rem;
 }

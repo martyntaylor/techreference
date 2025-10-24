@@ -10,7 +10,7 @@ $allItems = array_merge(
 
 @if(count($allItems) > 1)
 
-    <nav aria-label="Breadcrumb" class="flex items-center gap-x-2 text-sm/6 mb-8">
+    <nav aria-label="Breadcrumb" class="flex items-center gap-x-2 text-sm/6 mb-8 px-8 md:px-4">
         @foreach($allItems as $item)
                 @if(!$loop->first)
                     <span class="text-gray-950/25 dark:text-white/25">/</span>

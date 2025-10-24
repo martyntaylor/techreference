@@ -149,13 +149,13 @@ x-init="if (darkMode) { document.documentElement.classList.add('dark'); } else i
 
                 <div class="flex gap-x-10">
                     <!-- Main Content -->
-                    <main id="content" class="w-full flex-1 prose">
+                    <main id="content" class="w-full flex-1 prose px-8 md:px-4 lg:pr-12">
                         {{ $slot }}
                     </main>
 
                 <!-- Right Sidebar -->
                 @if(isset($sidebar))
-                <aside class="hidden w-66 lg:block">
+                <aside class="hidden w-66 lg:block pr-4">
                     <div class="sticky top-16">
                         <!-- Ad Block Placeholder -->
                         <div class="mb-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-center text-sm text-gray-500">
