@@ -78,13 +78,6 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
                 </div>
             </dl>
 
-            @if($port->description)
-                <div class="mt-4">
-                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Description</dt>
-                    <dd class="text-gray-700 dark:text-gray-300">{{ $port->description }}</dd>
-                </div>
-            @endif
-
             {{-- Protocol-Specific Information --}}
             @if($ports->count() > 1)
             <h3 class="mb-4 h3-mt">Protocol Details</h3>
@@ -186,6 +179,9 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
             />
             </x-content-block>
         @endif
+
+        <!-- Testing & Troubleshooting Commands -->
+        <x-port-testing-commands :port="$port" />
 
         <!-- Troubleshooting Content Block -->
         @if($block = $getContentBlock('troubleshooting'))
