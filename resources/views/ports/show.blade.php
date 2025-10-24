@@ -46,6 +46,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <h1 class="mb-8">
             {{ $heading }}
         </h1>
+        
 
         <!-- Quick Reference -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
@@ -86,12 +87,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
 
         <!-- Overview Content Block -->
         @if($block = $getContentBlock('overview'))
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="{{ Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
-            <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                {!! nl2br(e($block['content'])) !!}
-            </div>
-        </div>
+            <x-content-block :title="$block['title']" :content="$block['content']" />
         @endif
 
         <!-- Protocol-Specific Information -->
@@ -130,12 +126,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
 
         <!-- Common Uses Content Block -->
         @if($block = $getContentBlock('common_uses'))
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="{{ Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
-            <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                {!! nl2br(e($block['content'])) !!}
-            </div>
-        </div>
+            <x-content-block :title="$block['title']" :content="$block['content']" />
         @endif
 
         <!-- Software Using This Port -->
@@ -160,12 +151,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
 
         <!-- Security Content Block -->
         @if($block = $getContentBlock('security'))
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="{{ Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
-            <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                {!! nl2br(e($block['content'])) !!}
-            </div>
-        </div>
+            <x-content-block :title="$block['title']" :content="$block['content']" />
         @endif
 
         <!-- Security Assessment -->
@@ -372,12 +358,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
 
         <!-- Configuration Guide Content Block -->
         @if($block = $getContentBlock('configuration'))
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="{{ Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
-            <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                {!! nl2br(e($block['content'])) !!}
-            </div>
-        </div>
+            <x-content-block :title="$block['title']" :content="$block['content']" />
         @endif
 
         <!-- Configuration Examples -->
@@ -415,12 +396,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
 
         <!-- Troubleshooting Content Block -->
         @if($block = $getContentBlock('troubleshooting'))
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="{{ Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
-            <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                {!! nl2br(e($block['content'])) !!}
-            </div>
-        </div>
+            <x-content-block :title="$block['title']" :content="$block['content']" />
         @endif
 
         <!-- Common Issues -->
@@ -453,12 +429,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
 
         <!-- Best Practices Content Block -->
         @if($block = $getContentBlock('best_practices'))
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="{{ Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
-            <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                {!! nl2br(e($block['content'])) !!}
-            </div>
-        </div>
+            <x-content-block :title="$block['title']" :content="$block['content']" />
         @endif
 
         <!-- Related Ports -->
@@ -609,40 +580,46 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         @endif
 
         <!-- Data Sources -->
-        <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Data Sources</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 dark:text-gray-400">
+        @php
+            ob_start();
+        @endphp
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 dark:text-gray-400">
+            <div>
+                <div class="font-medium text-gray-900 dark:text-white mb-1">IANA Registry</div>
+                <div class="text-xs">
+                    @if($port->iana_updated_at)
+                        Last updated: {{ $port->iana_updated_at->format('M d, Y') }}
+                    @else
+                        Official port assignments
+                    @endif
+                </div>
+            </div>
+            @if($port->security)
+                @if($port->security->shodan_updated_at)
                 <div>
-                    <div class="font-medium text-gray-900 dark:text-white mb-1">IANA Registry</div>
+                    <div class="font-medium text-gray-900 dark:text-white mb-1">Shodan</div>
                     <div class="text-xs">
-                        @if($port->iana_updated_at)
-                            Last updated: {{ $port->iana_updated_at->format('M d, Y') }}
-                        @else
-                            Official port assignments
-                        @endif
+                        Last updated: {{ $port->security->shodan_updated_at->format('M d, Y') }}
                     </div>
                 </div>
-                @if($port->security)
-                    @if($port->security->shodan_updated_at)
-                    <div>
-                        <div class="font-medium text-gray-900 dark:text-white mb-1">Shodan</div>
-                        <div class="text-xs">
-                            Last updated: {{ $port->security->shodan_updated_at->format('M d, Y') }}
-                        </div>
-                    </div>
-                    @endif
-                    @if($port->security->cve_updated_at)
-                    <div>
-                        <div class="font-medium text-gray-900 dark:text-white mb-1">NVD CVE Database</div>
-                        <div class="text-xs">
-                            Last updated: {{ $port->security->cve_updated_at->format('M d, Y') }}
-                        </div>
-                    </div>
-                    @endif
                 @endif
-            </div>
+                @if($port->security->cve_updated_at)
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white mb-1">NVD CVE Database</div>
+                    <div class="text-xs">
+                        Last updated: {{ $port->security->cve_updated_at->format('M d, Y') }}
+                    </div>
+                </div>
+                @endif
+            @endif
         </div>
-    </div>
+        @php
+            $dataSourcesContent = ob_get_clean();
+        @endphp
+        <x-content-block title="Data Sources" :content="$dataSourcesContent" :escape="false" />
+
+
+
 
     
 
