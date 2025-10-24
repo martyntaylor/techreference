@@ -155,20 +155,23 @@ x-init="if (darkMode) { document.documentElement.classList.add('dark'); } else i
 
                 <!-- Right Sidebar -->
                 @if(isset($sidebar))
-                <aside class="hidden w-66 lg:block pr-4">
+                <aside class="hidden w-66 min-w-[356] lg:block pr-4">
+                    
+                    <!-- Ad Block Placeholder -->
+                    <div class="mb-8 p-4 bg-gray-100 dark:bg-gray-800 text-center text-sm text-gray-500">
+                        Ad space
+                    </div>
+
                     <div class="sticky top-16">
-                        <!-- Ad Block Placeholder -->
-                        <div class="mb-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-center text-sm text-gray-500">
-                            Ad space
-                        </div>
-                        
+                    
                         {{ $sidebar }}
 
                         <!-- Ad Block Placeholder -->
-                        <div class="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-center text-sm text-gray-500">
+                        <div class="mt-8 p-4 bg-gray-100 dark:bg-gray-800 text-center text-sm text-gray-500">
                             Ad space
                         </div>
                     </div>
+               
                 </aside>
                 @endif
                 </div>
