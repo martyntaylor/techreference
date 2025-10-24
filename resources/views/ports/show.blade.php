@@ -35,20 +35,21 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
 />
 
 <x-layouts.app :pageTitle="$pageTitle">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {{--  Breadcrumbs --}}
+    {{-- Breadcrumbs Slot --}}
+    <x-slot name="breadcrumbs">
         <x-breadcrumbs :items="$breadcrumbs" />
+    </x-slot>
 
+    {{-- Main Content --}}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {{-- Page Header --}}
         <h1 class="mb-8">
             {{ $heading }}
         </h1>
 
-
         <!-- Quick Reference -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Quick Reference</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="quick-reference">Quick Reference</h2>
             <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Port Number</dt>
@@ -86,7 +87,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Overview Content Block -->
         @if($block = $getContentBlock('overview'))
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ $block['title'] }}</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="{{ Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
             <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
                 {!! nl2br(e($block['content'])) !!}
             </div>
@@ -96,7 +97,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Protocol-Specific Information -->
         @if($ports->count() > 1)
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Protocol Details</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="protocol-details">Protocol Details</h2>
             <div class="space-y-4">
                 @foreach($ports as $protocolPort)
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
@@ -130,7 +131,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Common Uses Content Block -->
         @if($block = $getContentBlock('common_uses'))
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ $block['title'] }}</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="{{ Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
             <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
                 {!! nl2br(e($block['content'])) !!}
             </div>
@@ -140,7 +141,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Software Using This Port -->
         @if($port->software->isNotEmpty())
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Software Using This Port</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="software">Software Using This Port</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 @foreach($port->software as $software)
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
@@ -160,7 +161,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Security Content Block -->
         @if($block = $getContentBlock('security'))
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ $block['title'] }}</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="{{ Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
             <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
                 {!! nl2br(e($block['content'])) !!}
             </div>
@@ -170,7 +171,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Security Assessment -->
         @if($port->security)
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Security Assessment</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="security-assessment">Security Assessment</h2>
 
             <!-- Key Metrics -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -242,7 +243,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Internet Exposure Analysis -->
         @if($port->security->shodan_exposed_count > 0 && ($port->security->top_countries || $port->security->top_products || $port->security->top_operating_systems || $port->security->top_organizations))
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Internet Exposure Analysis</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="internet-exposure">Internet Exposure Analysis</h2>
             <div class="text-sm text-gray-600 dark:text-gray-400 mb-6 space-y-2">
                 <p>
                     This data comes from <a href="https://www.shodan.io" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">Shodan</a>, a search engine that continuously scans the internet for publicly accessible services. The statistics below show real-world exposure patterns for port {{ $port->port_number }}, revealing where and how this port is actively being used across the internet.
@@ -372,7 +373,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Configuration Guide Content Block -->
         @if($block = $getContentBlock('configuration'))
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ $block['title'] }}</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="{{ Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
             <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
                 {!! nl2br(e($block['content'])) !!}
             </div>
@@ -382,7 +383,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Configuration Examples -->
         @if($port->configs->isNotEmpty())
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Configuration & Access</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="configuration">Configuration & Access</h2>
 
             @php
             $configTabs = [];
@@ -415,7 +416,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Troubleshooting Content Block -->
         @if($block = $getContentBlock('troubleshooting'))
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ $block['title'] }}</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="{{ Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
             <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
                 {!! nl2br(e($block['content'])) !!}
             </div>
@@ -425,7 +426,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Common Issues -->
         @if($port->verifiedIssues->isNotEmpty())
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Common Issues</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="common-issues">Common Issues</h2>
             <div class="space-y-4">
                 @foreach($port->verifiedIssues as $issue)
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
@@ -453,7 +454,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Best Practices Content Block -->
         @if($block = $getContentBlock('best_practices'))
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">{{ $block['title'] }}</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="{{ Str::slug($block['title']) }}">{{ $block['title'] }}</h2>
             <div class="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
                 {!! nl2br(e($block['content'])) !!}
             </div>
@@ -574,7 +575,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- FAQs from PortPage -->
         @if($portPage && $portPage->faqs)
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Frequently Asked Questions</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-6" id="faq">Frequently Asked Questions</h2>
             <div class="space-y-6">
                 @foreach(collect($portPage->faqs)->sortBy('order') as $faq)
                     <div class="border-l-4 border-blue-500 pl-4">
@@ -589,7 +590,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <!-- Videos from PortPage -->
         @if($portPage && $portPage->video_urls)
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Video Resources</h2>
+            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4" id="video-resources">Video Resources</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 @foreach($portPage->video_urls as $video)
                     <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
@@ -643,6 +644,13 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         </div>
     </div>
 
+    
+
+    <!-- Sidebar Slot -->
+    <x-slot name="sidebar">
+        <x-table-of-contents />
+    </x-slot>
+
     <!-- Schema.org Structured Data - One per protocol -->
     @foreach($ports as $protocolPort)
         <x-schema-json
@@ -690,4 +698,12 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
             ]"
         />
     @endif
+
+    <style>
+        [x-cloak] { display: none !important; }
+        html {
+        scroll-behavior: smooth;
+        }
+    </style>
+
 </x-layouts.app>

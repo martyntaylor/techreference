@@ -7,10 +7,8 @@
 
     <title>{{ $pageTitle ?? 'TechReference' }} - Technical Reference for Developers</title>
 
-    <!-- Scripts -->
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- CSS -->
+    @vite(['resources/css/app.css'])
 
     <!-- Additional Head Content -->
     {{ $head ?? '' }}
@@ -139,13 +137,42 @@ x-init="if (darkMode) { document.documentElement.classList.add('dark'); } else i
             </div>
             </nav>
         </div>
-            
-        
+
+
 
             <!-- Page Content -->
-            <main id="content" class="prose">
-                {{ $slot }}
-            </main>
+            <div class="mx-auto max-w-2xl py-8 lg:max-w-7xl">
+                <!-- Breadcrumbs -->
+                @if(isset($breadcrumbs))
+                    {{ $breadcrumbs }}
+                @endif
+
+                <div class="flex gap-x-10">
+                    <!-- Main Content -->
+                    <main id="content" class="w-full flex-1 prose">
+                        {{ $slot }}
+                    </main>
+
+                <!-- Right Sidebar -->
+                @if(isset($sidebar))
+                <aside class="hidden w-66 lg:block">
+                    <div class="sticky top-16">
+                        <!-- Ad Block Placeholder -->
+                        <div class="mb-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-center text-sm text-gray-500">
+                            Ad space
+                        </div>
+                        
+                        {{ $sidebar }}
+
+                        <!-- Ad Block Placeholder -->
+                        <div class="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg text-center text-sm text-gray-500">
+                            Ad space
+                        </div>
+                    </div>
+                </aside>
+                @endif
+                </div>
+            </div>
 
             <!-- Footer -->
             <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-12">
@@ -158,6 +185,8 @@ x-init="if (darkMode) { document.documentElement.classList.add('dark'); } else i
         </div>
 
     <!-- Additional Scripts -->
+    @stack('scripts')
     {{ $scripts ?? '' }}
+    @vite(['resources/js/app.js'])
 </body>
 </html>
