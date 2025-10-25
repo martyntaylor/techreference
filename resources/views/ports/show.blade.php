@@ -128,7 +128,22 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
                     <li class="mb-4">
                         <h4>{{ $software->name }}</h4>
                         @if($software->category)
-                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $software->category }}</p>
+                            @php
+                                // Find matching port category by converting to slug format
+                                $softwareSlug = Str::slug($software->category);
+                                $matchingCategory = $port->categories->first(function($cat) use ($softwareSlug) {
+                                    return $cat->slug === $softwareSlug;
+                                });
+                            @endphp
+                            @if($matchingCategory)
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                    <a href="{{ route('ports.category', $matchingCategory->slug) }}" class="text-blue-600 dark:text-blue-400 hover:underline">
+                                        {{ $software->category }}
+                                    </a>
+                                </p>
+                            @else
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $software->category }}</p>
+                            @endif
                         @endif
                         @if($software->description)
                             <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $software->description }}</p>

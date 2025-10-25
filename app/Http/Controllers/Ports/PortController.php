@@ -28,6 +28,7 @@ class PortController extends Controller
         $ports->load([
             'software' => function ($query) {
                 $query->where('is_active', true)
+                    ->orderBy('category')
                     ->orderBy('name');
             },
             'security',
