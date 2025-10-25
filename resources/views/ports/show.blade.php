@@ -117,7 +117,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
         <x-content-block :title="$contentTitle ">
             @if($block = $getContentBlock('common_uses'))
             <h3 class="mb-4">{{ $block['title'] }}</h3>
-                {{ $block['content'] }}
+                {!! nl2br(Str::markdown(str_replace('\\n', "\n", $block['content']))) !!}
             @endif
 
             {{-- Software Using This Port --}}
@@ -223,7 +223,7 @@ $breadcrumbs[] = ['name' => "Port {$port->port_number}"];
 
             @if($block = $getContentBlock('security'))
                 <h3 class="mb-4">{{ $block['title'] }}</h4>
-                {{ $block['content'] }}
+                {!! nl2br(Str::markdown(str_replace('\\n', "\n", $block['content']))) !!}
             @endif
 
             <!-- Security Assessment -->

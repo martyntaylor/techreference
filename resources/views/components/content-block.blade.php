@@ -10,7 +10,7 @@
     </div>
     <div class="col-span-full pt-6 sm:col-span-3 sm:pt-10 prose dark:prose-invert max-w-none">
         @if($content)
-            {!! Str::markdown(str_replace('\n', "\n", $content)) !!}
+            {!! nl2br(Str::markdown(str_replace('\\n', "\n", $content))) !!}
         @else
             {!! $slot !!}
         @endif
